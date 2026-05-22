@@ -1,4 +1,4 @@
-.PHONY: dev-install format lint build clean help
+.PHONY: dev-install format lint build docs-serve docs-build clean help
 
 help:
 	@echo "Available commands:"
@@ -6,11 +6,13 @@ help:
 	@echo "  format       - Format code with black and isort"
 	@echo "  lint         - Run pre-commit hooks on all files"
 	@echo "  build        - Build the package"
+	@echo "  docs-serve   - Serve the documentation"
+	@echo "  docs-build   - Build the documentation"
 	@echo "  clean        - Remove build artifacts"
 
 dev-install:
 	pip install -r requirements.txt
-	pip install -e .
+	pip install mkdocs-material mkdocs-static-i18n
 	pre-commit install
 
 format:
@@ -23,5 +25,12 @@ lint:
 build:
 	python -m build
 
+docs-serve:
+	mkdocs serve
+
+docs-deploy:
+	mkdocs build
+	mkdocs gh-deploy
+
 clean:
-	rm -rf build/ dist/ *.egg-info/
+	rm -rf build/ dist/ *.egg-info/ site/

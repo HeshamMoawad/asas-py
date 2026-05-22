@@ -1,14 +1,12 @@
+# Asas
 
 <p align="center">
-  <a href="https://asas.dev"><img src="https://heshammoawad.github.io/asas-py/assets/logo-without-bg.png" alt="Asas"></a>
+  <img src="../assets/logo-without-bg.png" alt="Asas Logo" width="300">
 </p>
 
-<p align="center">
-    <em>Asas framework, high performance, easy to learn, fast to code, ready for production</em>
-</p>
+*Asas framework, high performance, easy to learn, fast to code, ready for production*
 
 ---
-# Asas (API Client Builder)
 
 ## About
 
@@ -17,3 +15,22 @@ Asas is a streamlined framework designed for building API clients through a clea
 ## Goal
 
 The core objective of Asas is to redefine API integration by making it more "Pythonic," elegant, and maintainable. By abstracting the verbosity typically associated with traditional request libraries, Asas empowers developers to focus on clear architecture and expressive code.
+
+## Quick Start
+
+### Installation
+
+```bash
+pip install asas-py
+```
+
+### Usage
+
+```python
+from asas import Asas, get
+
+class MyClient(Asas):
+    @get("/users/{id}")
+    async def get_user(self, id: int):
+        ...
+```
