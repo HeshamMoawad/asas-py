@@ -46,3 +46,6 @@ twine==6.2.0
 urllib3==2.7.0
 virtualenv==21.3.3
 zipp==4.1.0
+pytest==9.0.3
+pytest-cov==7.1.0
+mypy==2.1.0
