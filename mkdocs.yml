@@ -14,11 +14,9 @@ plugins:
           name: العربية
           build: true
       fallback_to_default: true
-# nav:
-#   - Home: index.md
-#   - Guide:
-#       - English: en/index.md
-#       - العربية: ar/index.md
+nav:
+  - Home: index.md
+
 theme:
   name: material
   favicon: assets/logo-without-bg.png
