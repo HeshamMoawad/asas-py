@@ -20,3 +20,11 @@ classifiers = [
 ]
 [project.urls]
 Homepage = "https://github.com/HeshamMoawad/asas-py"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
