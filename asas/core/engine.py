@@ -17,3 +17,11 @@ class Engine(Protocol):
     async def asend(self, request: Request) -> Response:
         """Send an asynchronous request."""
         ...
+
+    def close(self) -> None:
+        """Close the engine and release resources."""
+        ...
+
+    async def aclose(self) -> None:
+        """Close the engine asynchronously and release resources."""
+        ...
