@@ -1,46 +1,58 @@
 import asyncio
-from typing import Any, Dict, List, cast
+from typing import List
 
-from asas import AsasAsyncClient, AsasClient, Response, get, post
+from pydantic import BaseModel
+
+from asas import AsasAsyncClient, AsasClient, Response, get
+
+
+# Define Pydantic models for better type safety
+class Product(BaseModel):
+    id: int
+    title: str
+    description: str
+    price: float
+
+
+class ProductList(BaseModel):
+    products: List[Product]
+    total: int
 
 
 class DummyJSONClient(AsasClient):
+    """Synchronous client example."""
+
     def __init__(self) -> None:
         super().__init__(base_url="https://dummyjson.com")
 
-    @get("/products")
-    def get_products(self, response: Response) -> List[Dict[str, Any]]:
-        """Get all products synchronously."""
-        data = cast(Dict[str, Any], response.json())
-        return cast(List[Dict[str, Any]], data.get("products", []))
+    @get("/products", response_model=ProductList)
+    def get_products(self, data: ProductList) -> List[Product]:
+        """Get all products synchronously with Pydantic parsing."""
+        return data.products
 
-    @get("/products/search")
-    def search_products(self, response: Response, q: str) -> List[Dict[str, Any]]:
-        """Search for products."""
-        data = cast(Dict[str, Any], response.json())
-        return cast(List[Dict[str, Any]], data.get("products", []))
+    @get("/products/search", response_model=ProductList)
+    def search_products(self, data: ProductList, q: str) -> List[Product]:
+        """Search for products using query parameters."""
+        return data.products
 
 
 class AsyncDummyJSONClient(AsasAsyncClient):
+    """Asynchronous client example."""
+
     def __init__(self) -> None:
         super().__init__(base_url="https://dummyjson.com")
 
-    @get("/products/{id}")
-    async def get_product_async(self, response: Response, id: int) -> Dict[str, Any]:
+    @get("/products/{id}", response_model=Product)
+    async def get_product_async(self, product: Product, id: int) -> Product:
         """Get a single product asynchronously."""
-        return cast(Dict[str, Any], response.json())
-
-    @post("/auth/login")
-    async def login(self, response: Response) -> Dict[str, Any]:
-        """Login example."""
-        return cast(Dict[str, Any], response.json())
+        return product
 
 
 async def main() -> None:
     sync_client = DummyJSONClient()
     async_client = AsyncDummyJSONClient()
 
-    print("--- DummyJSON Example ---")
+    print("--- DummyJSON Enhanced Example ---")
 
     # Sync: Get products
     try:
@@ -48,7 +60,7 @@ async def main() -> None:
         products = sync_client.get_products()
         if products:
             print(f"Found {len(products)} products.")
-            print(f"First product: {products[0].get('title')}")
+            print(f"First product: {products[0].title} (${products[0].price})")
     except Exception as e:
         print(f"Sync request failed: {e}")
 
@@ -56,7 +68,8 @@ async def main() -> None:
     try:
         print("\n[Async] Fetching product ID 1...")
         product = await async_client.get_product_async(id=1)
-        print(f"Product title: {product.get('title')}")
+        print(f"Product title: {product.title}")
+        print(f"Description: {product.description[:50]}...")
     except Exception as e:
         print(f"Async request failed: {e}")
 
