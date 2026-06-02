@@ -1,6 +1,6 @@
 import functools
 import inspect
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -9,71 +9,94 @@ from asas.core.models import Payload, Request
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+def _build_request(
+    method: str,
+    path: str,
+    sig: inspect.Signature,
+    base_url: str,
+    instance: Any,
+    args: tuple,
+    kwargs: Dict[str, Any],
+) -> Request:
+    """Extracts parameters from function call and builds a Request object."""
+    bound_args = sig.bind_partial(instance, *args, **kwargs)
+    bound_args.apply_defaults()
+
+    actual_path = path
+    query_params: Dict[str, Any] = {}
+    json_data: Optional[Any] = None
+
+    for name, value in bound_args.arguments.items():
+        if name == "self":
+            continue
+
+        placeholder = f"{{{name}}}"
+        if placeholder in actual_path:
+            actual_path = actual_path.replace(placeholder, str(value))
+        elif isinstance(value, BaseModel):
+            json_data = value.model_dump()
+        elif isinstance(value, list) and all(isinstance(i, BaseModel) for i in value):
+            json_data = [i.model_dump() for i in value]
+        else:
+            if value is not None:
+                query_params[name] = value
+
+    url = f"{base_url}/{actual_path.lstrip('/')}"
+    payload = Payload(json=json_data) if json_data is not None else None
+    request = Request(method=method, url=url, params=query_params, payload=payload)
+
+    if hasattr(instance, "auth") and instance.auth:
+        request = instance.auth.apply(request)
+
+    return request
+
+
+def _parse_response(response: Any, response_model: Optional[Any] = None) -> Any:
+    """Parses the response using Pydantic if a response_model is provided."""
+    if response_model:
+        from pydantic import TypeAdapter
+
+        adapter = TypeAdapter(response_model)
+        return adapter.validate_python(response.json())
+    return response
+
+
+def _ensure_engine_capability(engine: Any, method_name: str) -> None:
+    """Checks if the engine supports the requested communication mode."""
+    if not hasattr(engine, method_name):
+        mode = "asynchronous" if method_name == "asend" else "synchronous"
+        protocol = "AsyncEngine" if method_name == "asend" else "SyncEngine"
+        raise TypeError(
+            f"Engine {type(engine).__name__} does not support {mode} requests. "
+            f"Make sure your engine implements {protocol} protocol."
+        )
+
+
 def _make_request_decorator(method: str) -> Callable:
     def decorator(path: str, response_model: Optional[Any] = None) -> Callable[[F], F]:
         def wrapper(func: F) -> F:
             is_async = inspect.iscoroutinefunction(func)
             sig = inspect.signature(func)
 
-            def _prepare_request(
-                self: Any, args: tuple, kwargs: Dict[str, Any]
-            ) -> Request:
-                # Use bind_partial to avoid TypeError for missing injected arguments (like 'response')
-                bound_args = sig.bind_partial(self, *args, **kwargs)
-                bound_args.apply_defaults()
-
-                actual_path = path
-                query_params: Dict[str, Any] = {}
-                json_data: Optional[Any] = None
-
-                for name, value in bound_args.arguments.items():
-                    if name == "self":
-                        continue
-
-                    placeholder = f"{{{name}}}"
-                    if placeholder in actual_path:
-                        actual_path = actual_path.replace(placeholder, str(value))
-                    elif isinstance(value, BaseModel):
-                        json_data = value.model_dump()
-                    elif isinstance(value, list) and all(
-                        isinstance(i, BaseModel) for i in value
-                    ):
-                        json_data = [i.model_dump() for i in value]
-                    else:
-                        # Default to query parameters for other simple types
-                        if value is not None:
-                            query_params[name] = value
-
-                url = f"{self.base_url}/{actual_path.lstrip('/')}"
-                payload = Payload(json=json_data) if json_data is not None else None
-                return Request(
-                    method=method, url=url, params=query_params, payload=payload
-                )
-
-            def _parse_response(response: Any) -> Any:
-                if response_model:
-                    from pydantic import TypeAdapter
-
-                    adapter = TypeAdapter(response_model)
-                    return adapter.validate_python(response.json())
-                return response
-
             @functools.wraps(func)
             async def async_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-                request = _prepare_request(self, args, kwargs)
+                request = _build_request(
+                    method, path, sig, self.base_url, self, args, kwargs
+                )
+                _ensure_engine_capability(self.engine, "asend")
                 response = await self.engine.asend(request)
-                parsed = _parse_response(response)
-                # If the function is just a placeholder (pass or ...),
-                # we return the parsed response directly to improve DX.
-                # Otherwise, we call the function with the parsed response.
+                parsed = _parse_response(response, response_model)
                 result = await func(self, parsed, *args, **kwargs)
                 return result if result is not None else parsed
 
             @functools.wraps(func)
             def sync_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-                request = _prepare_request(self, args, kwargs)
+                request = _build_request(
+                    method, path, sig, self.base_url, self, args, kwargs
+                )
+                _ensure_engine_capability(self.engine, "send")
                 response = self.engine.send(request)
-                parsed = _parse_response(response)
+                parsed = _parse_response(response, response_model)
                 result = func(self, parsed, *args, **kwargs)
                 return result if result is not None else parsed
 
