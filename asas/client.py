@@ -20,7 +20,17 @@ class BaseAsasClient(Generic[E]):
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.engine: E = engine
-        self.auth = auth
+        self._auth = auth
+
+    @property
+    def auth(self) -> Optional[Auth]:
+        """Get the current authentication strategy."""
+        return self._auth
+
+    @auth.setter
+    def auth(self, value: Optional[Auth]) -> None:
+        """Set a new authentication strategy."""
+        self._auth = value
 
 
 class AsasClient(BaseAsasClient[SyncEngine]):
