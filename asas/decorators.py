@@ -17,6 +17,7 @@ def _build_request(
     instance: Any,
     args: tuple,
     kwargs: Dict[str, Any],
+    use_auth: bool = True,
 ) -> Request:
     """Extracts parameters from function call and builds a Request object."""
     bound_args = sig.bind_partial(instance, *args, **kwargs)
@@ -45,7 +46,7 @@ def _build_request(
     payload = Payload(json=json_data) if json_data is not None else None
     request = Request(method=method, url=url, params=query_params, payload=payload)
 
-    if hasattr(instance, "auth") and instance.auth:
+    if use_auth and hasattr(instance, "auth") and instance.auth:
         request = instance.auth.apply(request)
 
     return request
@@ -73,7 +74,9 @@ def _ensure_engine_capability(engine: Any, method_name: str) -> None:
 
 
 def _make_request_decorator(method: str) -> Callable:
-    def decorator(path: str, response_model: Optional[Any] = None) -> Callable[[F], F]:
+    def decorator(
+        path: str, response_model: Optional[Any] = None, use_auth: bool = True
+    ) -> Callable[[F], F]:
         from asas.auth import RefreshableAuth
 
         def wrapper(func: F) -> F:
@@ -83,18 +86,20 @@ def _make_request_decorator(method: str) -> Callable:
             @functools.wraps(func)
             async def async_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
                 request = _build_request(
-                    method, path, sig, self.base_url, self, args, kwargs
+                    method, path, sig, self.base_url, self, args, kwargs, use_auth
                 )
                 _ensure_engine_capability(self.engine, "asend")
                 response = await self.engine.asend(request)
 
-                if response.status_code == 401 and isinstance(
-                    self.auth, RefreshableAuth
+                if (
+                    use_auth
+                    and response.status_code == 401
+                    and isinstance(self.auth, RefreshableAuth)
                 ):
                     await self.auth.arefresh()
                     # Re-build request to apply new auth
                     request = _build_request(
-                        method, path, sig, self.base_url, self, args, kwargs
+                        method, path, sig, self.base_url, self, args, kwargs, use_auth
                     )
                     response = await self.engine.asend(request)
 
@@ -105,18 +110,20 @@ def _make_request_decorator(method: str) -> Callable:
             @functools.wraps(func)
             def sync_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
                 request = _build_request(
-                    method, path, sig, self.base_url, self, args, kwargs
+                    method, path, sig, self.base_url, self, args, kwargs, use_auth
                 )
                 _ensure_engine_capability(self.engine, "send")
                 response = self.engine.send(request)
 
-                if response.status_code == 401 and isinstance(
-                    self.auth, RefreshableAuth
+                if (
+                    use_auth
+                    and response.status_code == 401
+                    and isinstance(self.auth, RefreshableAuth)
                 ):
                     self.auth.refresh()
                     # Re-build request to apply new auth
                     request = _build_request(
-                        method, path, sig, self.base_url, self, args, kwargs
+                        method, path, sig, self.base_url, self, args, kwargs, use_auth
                     )
                     response = self.engine.send(request)
 
