@@ -1,5 +1,5 @@
 import base64
-from typing import Optional, Protocol, runtime_checkable
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 from asas.core.models import Request
 
@@ -10,6 +10,19 @@ class Auth(Protocol):
 
     def apply(self, request: Request) -> Request:
         """Apply authentication to the request."""
+        ...
+
+
+@runtime_checkable
+class RefreshableAuth(Auth, Protocol):
+    """Protocol for authentication strategies that support refreshing."""
+
+    def refresh(self) -> None:
+        """Refresh authentication synchronously."""
+        ...
+
+    async def arefresh(self) -> None:
+        """Refresh authentication asynchronously."""
         ...
 
 
@@ -36,6 +49,44 @@ class BearerAuth:
     def apply(self, request: Request) -> Request:
         request.headers["Authorization"] = f"Bearer {self.token}"
         return request
+
+
+class RefreshingBearerAuth:
+    """
+    Bearer Token Authentication with automatic refresh support.
+    """
+
+    def __init__(
+        self,
+        token: str,
+        key_name: str = "Authorization",
+        token_prefix: str = "Bearer ",
+        refresh_callback: Optional[Callable[[], str]] = None,
+        async_refresh_callback: Optional[Callable[[], Any]] = None,
+    ) -> None:
+        self.token = token
+        self.key = key_name
+        self.token_prefix = token_prefix
+        self.refresh_callback = refresh_callback
+        self.async_refresh_callback = async_refresh_callback
+
+    def apply(self, request: Request) -> Request:
+        request.headers[self.key] = f"{self.token_prefix}{self.token}"
+        return request
+
+    def refresh(self) -> None:
+        if self.refresh_callback:
+            self.token = self.refresh_callback()
+        else:
+            raise NotImplementedError("Sync refresh callback not provided")
+
+    async def arefresh(self) -> None:
+        if self.async_refresh_callback:
+            self.token = await self.async_refresh_callback()
+        elif self.refresh_callback:
+            self.token = self.refresh_callback()
+        else:
+            raise NotImplementedError("No refresh callback provided")
 
 
 class APIKeyAuth:
