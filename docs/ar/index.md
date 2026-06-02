@@ -26,11 +26,100 @@ pip install asas-py
 
 ### الاستخدام
 
-```python
-from asas import Asas, get
+يوفر أساس عملاء منفصلين للعمليات المتزامنة وغير المتزامنة.
 
-class MyClient(Asas):
+#### عميل متزامن (Synchronous Client)
+
+```python
+from asas import AsasClient, get, Response
+
+class MyClient(AsasClient):
     @get("/users/{id}")
-    async def get_user(self, id: int):
-        ...
+    def get_user(self, response: Response, id: int):
+        return response.json()
+
+client = MyClient(base_url="https://api.example.com")
+user = client.get_user(id=1)
+```
+
+#### عميل غير متزامن (Asynchronous Client)
+
+```python
+from asas import AsasAsyncClient, get, Response
+
+class MyAsyncClient(AsasAsyncClient):
+    @get("/users/{id}")
+    async def get_user(self, response: Response, id: int):
+        return response.json()
+
+async def main():
+    client = MyAsyncClient(base_url="https://api.example.com")
+    user = await client.get_user(id=1)
+    await client.engine.aclose()
+```
+
+## الميزات
+
+### المصادقة (Authentication)
+
+يدعم أساس عدة استراتيجيات للمصادقة بشكل افتراضي:
+
+- **BasicAuth**: `BasicAuth("username", "password")`
+- **BearerAuth**: `BearerAuth("your-token")`
+- **APIKeyAuth**: `APIKeyAuth("your-key", name="X-API-Key", location="header")` (يدعم `header` أو `query`)
+
+```python
+from asas import AsasClient, BearerAuth
+
+auth = BearerAuth("my-secret-token")
+client = MyClient(base_url="https://api.example.com", auth=auth)
+```
+
+### تحديث الرمز تلقائياً (Automatic Token Refresh)
+
+يمكنك استخدام `RefreshingBearerAuth` لتحديث الرموز تلقائياً عند استلام استجابة `401 Unauthorized`.
+
+```python
+from asas import AsasAsyncClient, RefreshingBearerAuth
+
+async def refresh_token():
+    # المنطق الخاص بك للحصول على رمز جديد
+    return "new-token"
+
+auth = RefreshingBearerAuth(
+    token="initial-token",
+    async_refresh_callback=refresh_token
+)
+
+client = MyAsyncClient(base_url="https://api.example.com", auth=auth)
+# إذا أعاد الطلب 401، فسيقوم بتحديث الرمز وإعادة المحاولة تلقائياً مرة واحدة.
+```
+
+### التحكم في المصادقة لكل نقطة نهاية (Per-Endpoint Auth Control)
+
+تعطيل المصادقة لنقاط نهاية عامة محددة حتى لو كان العميل لديه استراتيجية مصادقة عامة.
+
+```python
+class MyClient(AsasClient):
+    @get("/public-data", use_auth=False)
+    def get_public(self, response: Response):
+        return response.json()
+```
+
+### التكامل مع Pydantic
+
+يتكامل أساس بسلاسة مع Pydantic للتحقق من صحة الطلبات والاستجابات.
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class User(BaseModel):
+    id: int
+    name: str
+
+class MyClient(AsasClient):
+    @get("/users", response_model=List[User])
+    def get_users(self, users: List[User]):
+        return users
 ```
