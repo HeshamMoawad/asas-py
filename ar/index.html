@@ -399,6 +399,95 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#synchronous-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synchronous Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asynchronous-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asynchronous Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-token-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Token Refresh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-endpoint-auth-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Endpoint Auth Control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pydantic-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pydantic Integration
+      
+    </span>
+  </a>
+  
 </li>
         
       </ul>
@@ -494,6 +583,95 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#synchronous-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synchronous Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asynchronous-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asynchronous Client
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-token-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Token Refresh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-endpoint-auth-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Endpoint Auth Control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pydantic-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pydantic Integration
+      
+    </span>
+  </a>
+  
 </li>
         
       </ul>
@@ -537,12 +715,80 @@
 <pre><code class="language-bash">pip install asas-py
 </code></pre>
 <h3 id="usage">Usage</h3>
-<pre><code class="language-python">from asas import Asas, get
+<p>Asas provides separate clients for synchronous and asynchronous operations.</p>
+<h4 id="synchronous-client">Synchronous Client</h4>
+<pre><code class="language-python">from asas import AsasClient, get, Response
 
-class MyClient(Asas):
+class MyClient(AsasClient):
     @get(&quot;/users/{id}&quot;)
-    async def get_user(self, id: int):
-        ...
+    def get_user(self, response: Response, id: int):
+        return response.json()
+
+client = MyClient(base_url=&quot;https://api.example.com&quot;)
+user = client.get_user(id=1)
+</code></pre>
+<h4 id="asynchronous-client">Asynchronous Client</h4>
+<pre><code class="language-python">from asas import AsasAsyncClient, get, Response
+
+class MyAsyncClient(AsasAsyncClient):
+    @get(&quot;/users/{id}&quot;)
+    async def get_user(self, response: Response, id: int):
+        return response.json()
+
+async def main():
+    client = MyAsyncClient(base_url=&quot;https://api.example.com&quot;)
+    user = await client.get_user(id=1)
+    await client.engine.aclose()
+</code></pre>
+<h2 id="features">Features</h2>
+<h3 id="authentication">Authentication</h3>
+<p>Asas supports several authentication strategies out of the box:</p>
+<ul>
+<li><strong>BasicAuth</strong>: <code>BasicAuth("username", "password")</code></li>
+<li><strong>BearerAuth</strong>: <code>BearerAuth("your-token")</code></li>
+<li><strong>APIKeyAuth</strong>: <code>APIKeyAuth("your-key", name="X-API-Key", location="header")</code> (supports <code>header</code> or <code>query</code>)</li>
+</ul>
+<pre><code class="language-python">from asas import AsasClient, BearerAuth
+
+auth = BearerAuth(&quot;my-secret-token&quot;)
+client = MyClient(base_url=&quot;https://api.example.com&quot;, auth=auth)
+</code></pre>
+<h3 id="automatic-token-refresh">Automatic Token Refresh</h3>
+<p>You can use <code>RefreshingBearerAuth</code> to automatically refresh tokens when a <code>401 Unauthorized</code> response is received.</p>
+<pre><code class="language-python">from asas import AsasAsyncClient, RefreshingBearerAuth
+
+async def refresh_token():
+    # Your logic to get a new token
+    return &quot;new-token&quot;
+
+auth = RefreshingBearerAuth(
+    token=&quot;initial-token&quot;,
+    async_refresh_callback=refresh_token
+)
+
+client = MyAsyncClient(base_url=&quot;https://api.example.com&quot;, auth=auth)
+# If a call returns 401, it will automatically refresh and retry once.
+</code></pre>
+<h3 id="per-endpoint-auth-control">Per-Endpoint Auth Control</h3>
+<p>Disable authentication for specific public endpoints even if the client has a global auth strategy.</p>
+<pre><code class="language-python">class MyClient(AsasClient):
+    @get(&quot;/public-data&quot;, use_auth=False)
+    def get_public(self, response: Response):
+        return response.json()
+</code></pre>
+<h3 id="pydantic-integration">Pydantic Integration</h3>
+<p>Asas seamlessly integrates with Pydantic for request/response validation.</p>
+<pre><code class="language-python">from pydantic import BaseModel
+from typing import List
+
+class User(BaseModel):
+    id: int
+    name: str
+
+class MyClient(AsasClient):
+    @get(&quot;/users&quot;, response_model=List[User])
+    def get_users(self, users: List[User]):
+        return users
 </code></pre>
 
 

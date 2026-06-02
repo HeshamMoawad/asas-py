@@ -386,6 +386,95 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="الاستخدام">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#synchronous-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        عميل متزامن (Synchronous Client)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asynchronous-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        عميل غير متزامن (Asynchronous Client)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        الميزات
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="الميزات">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        المصادقة (Authentication)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#automatic-token-refresh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        تحديث الرمز تلقائياً (Automatic Token Refresh)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-endpoint-auth-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        التحكم في المصادقة لكل نقطة نهاية (Per-Endpoint Auth Control)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pydantic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        التكامل مع Pydantic
+      
+    </span>
+  </a>
+  
 </li>
         
       </ul>
@@ -429,12 +518,80 @@
 <pre><code class="language-bash">pip install asas-py
 </code></pre>
 <h3 id="_5">الاستخدام</h3>
-<pre><code class="language-python">from asas import Asas, get
+<p>يوفر أساس عملاء منفصلين للعمليات المتزامنة وغير المتزامنة.</p>
+<h4 id="synchronous-client">عميل متزامن (Synchronous Client)</h4>
+<pre><code class="language-python">from asas import AsasClient, get, Response
 
-class MyClient(Asas):
+class MyClient(AsasClient):
     @get(&quot;/users/{id}&quot;)
-    async def get_user(self, id: int):
-        ...
+    def get_user(self, response: Response, id: int):
+        return response.json()
+
+client = MyClient(base_url=&quot;https://api.example.com&quot;)
+user = client.get_user(id=1)
+</code></pre>
+<h4 id="asynchronous-client">عميل غير متزامن (Asynchronous Client)</h4>
+<pre><code class="language-python">from asas import AsasAsyncClient, get, Response
+
+class MyAsyncClient(AsasAsyncClient):
+    @get(&quot;/users/{id}&quot;)
+    async def get_user(self, response: Response, id: int):
+        return response.json()
+
+async def main():
+    client = MyAsyncClient(base_url=&quot;https://api.example.com&quot;)
+    user = await client.get_user(id=1)
+    await client.engine.aclose()
+</code></pre>
+<h2 id="_6">الميزات</h2>
+<h3 id="authentication">المصادقة (Authentication)</h3>
+<p>يدعم أساس عدة استراتيجيات للمصادقة بشكل افتراضي:</p>
+<ul>
+<li><strong>BasicAuth</strong>: <code>BasicAuth("username", "password")</code></li>
+<li><strong>BearerAuth</strong>: <code>BearerAuth("your-token")</code></li>
+<li><strong>APIKeyAuth</strong>: <code>APIKeyAuth("your-key", name="X-API-Key", location="header")</code> (يدعم <code>header</code> أو <code>query</code>)</li>
+</ul>
+<pre><code class="language-python">from asas import AsasClient, BearerAuth
+
+auth = BearerAuth(&quot;my-secret-token&quot;)
+client = MyClient(base_url=&quot;https://api.example.com&quot;, auth=auth)
+</code></pre>
+<h3 id="automatic-token-refresh">تحديث الرمز تلقائياً (Automatic Token Refresh)</h3>
+<p>يمكنك استخدام <code>RefreshingBearerAuth</code> لتحديث الرموز تلقائياً عند استلام استجابة <code>401 Unauthorized</code>.</p>
+<pre><code class="language-python">from asas import AsasAsyncClient, RefreshingBearerAuth
+
+async def refresh_token():
+    # المنطق الخاص بك للحصول على رمز جديد
+    return &quot;new-token&quot;
+
+auth = RefreshingBearerAuth(
+    token=&quot;initial-token&quot;,
+    async_refresh_callback=refresh_token
+)
+
+client = MyAsyncClient(base_url=&quot;https://api.example.com&quot;, auth=auth)
+# إذا أعاد الطلب 401، فسيقوم بتحديث الرمز وإعادة المحاولة تلقائياً مرة واحدة.
+</code></pre>
+<h3 id="per-endpoint-auth-control">التحكم في المصادقة لكل نقطة نهاية (Per-Endpoint Auth Control)</h3>
+<p>تعطيل المصادقة لنقاط نهاية عامة محددة حتى لو كان العميل لديه استراتيجية مصادقة عامة.</p>
+<pre><code class="language-python">class MyClient(AsasClient):
+    @get(&quot;/public-data&quot;, use_auth=False)
+    def get_public(self, response: Response):
+        return response.json()
+</code></pre>
+<h3 id="pydantic">التكامل مع Pydantic</h3>
+<p>يتكامل أساس بسلاسة مع Pydantic للتحقق من صحة الطلبات والاستجابات.</p>
+<pre><code class="language-python">from pydantic import BaseModel
+from typing import List
+
+class User(BaseModel):
+    id: int
+    name: str
+
+class MyClient(AsasClient):
+    @get(&quot;/users&quot;, response_model=List[User])
+    def get_users(self, users: List[User]):
+        return users
 </code></pre>
 
 
