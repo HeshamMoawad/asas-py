@@ -5,8 +5,10 @@ import respx
 from httpx import Response as HttpxResponse
 
 from asas import (
+    AsasAsyncClient,
     AsasClient,
-    HTTPXEngine,
+    HTTPXAsyncEngine,
+    HTTPXSyncEngine,
     Payload,
     Response,
     delete,
@@ -17,13 +19,9 @@ from asas import (
 )
 
 
-class MockClient(AsasClient):
+class MockSyncClient(AsasClient):
     @get("/test")
     def get_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
-
-    @get("/test-async")
-    async def get_test_async(self, response: Response) -> Dict[str, Any]:
         return cast(Dict[str, Any], response.json())
 
     @post("/test-post")
@@ -43,9 +41,17 @@ class MockClient(AsasClient):
         return cast(Dict[str, Any], response.json())
 
 
+class MockAsyncClient(AsasAsyncClient):
+    @get("/test-async")
+    async def get_test_async(self, response: Response) -> Dict[str, Any]:
+        return cast(Dict[str, Any], response.json())
+
+
 @pytest.mark.asyncio
 async def test_client_all_decorators() -> None:
-    client = MockClient(base_url="https://api.example.com")
+    sync_client = MockSyncClient(base_url="https://api.example.com")
+    async_client = MockAsyncClient(base_url="https://api.example.com")
+
     async with respx.mock(base_url="https://api.example.com") as respx_mock:
         respx_mock.get("/test").mock(return_value=HttpxResponse(200, json={"m": "g"}))
         respx_mock.get("/test-async").mock(
@@ -64,40 +70,36 @@ async def test_client_all_decorators() -> None:
             return_value=HttpxResponse(200, json={"m": "pa"})
         )
 
-        assert client.get_test() == {"m": "g"}
-        assert await client.get_test_async() == {"m": "ga"}
-        assert client.post_test() == {"m": "po"}
-        assert client.put_test() == {"m": "pu"}
-        assert client.delete_test() == {"m": "d"}
-        assert client.patch_test() == {"m": "pa"}
-    await client.engine.aclose()
-    client.engine.close()
+        assert sync_client.get_test() == {"m": "g"}
+        assert await async_client.get_test_async() == {"m": "ga"}
+        assert sync_client.post_test() == {"m": "po"}
+        assert sync_client.put_test() == {"m": "pu"}
+        assert sync_client.delete_test() == {"m": "d"}
+        assert sync_client.patch_test() == {"m": "pa"}
+
+    sync_client.engine.close()
+    await async_client.engine.aclose()
 
 
 def test_httpx_engine_payload_types() -> None:
     from asas.core.models import Request
-
-    engine = HTTPXEngine()
+    from asas.engines.httpx import _prepare_httpx_request
 
     # Test with raw data
     req_data = Request(method="POST", url="http://h", payload=Payload(data=b"raw"))
-    httpx_req = engine._prepare_httpx_request(req_data)
+    httpx_req = _prepare_httpx_request(req_data)
     assert httpx_req.content == b"raw"
 
     # Test with files
     req_files = Request(
         method="POST", url="http://h", payload=Payload(files={"f": b"c"})
     )
-    httpx_req = engine._prepare_httpx_request(req_files)
+    httpx_req = _prepare_httpx_request(req_files)
     assert "multipart/form-data" in httpx_req.headers["content-type"]
-
-    engine.close()
 
 
 def test_client_custom_engine() -> None:
-    from asas.engines.httpx import HTTPXEngine
-
-    engine = HTTPXEngine()
+    engine = HTTPXSyncEngine()
     client = AsasClient(base_url="https://api.example.com", engine=engine)
     assert client.engine is engine
     client.engine.close()

@@ -5,7 +5,7 @@ import respx
 from httpx import Response as HttpxResponse
 from pydantic import BaseModel
 
-from asas import AsasClient, get, post
+from asas import AsasAsyncClient, AsasClient, get, post
 
 
 class Item(BaseModel):
@@ -24,10 +24,6 @@ class PydanticClient(AsasClient):
     def get_item(self, item: Item, item_id: int) -> Item:
         return item
 
-    @get("/users/{user_id}", response_model=User)
-    async def get_user_async(self, user: User, user_id: int) -> User:
-        return user
-
     @get("/items", response_model=List[Item])
     def list_items(self, items: List[Item]) -> List[Item]:
         return items
@@ -40,6 +36,12 @@ class PydanticClient(AsasClient):
     @post("/items", response_model=Item)
     def create_item(self, item: Item, data: Item) -> Item:
         return item
+
+
+class AsyncPydanticClient(AsasAsyncClient):
+    @get("/users/{user_id}", response_model=User)
+    async def get_user_async(self, user: User, user_id: int) -> User:
+        return user
 
 
 def test_pydantic_sync_parse() -> None:
@@ -57,7 +59,7 @@ def test_pydantic_sync_parse() -> None:
 
 @pytest.mark.asyncio
 async def test_pydantic_async_parse() -> None:
-    client = PydanticClient(base_url="https://api.example.com")
+    client = AsyncPydanticClient(base_url="https://api.example.com")
     user_data = {
         "id": 10,
         "username": "johndoe",
@@ -113,6 +115,11 @@ def test_body_mapping() -> None:
         result = client.create_item(data=item_to_create)
 
         assert route.called
-        assert route.calls.last.request.content == b'{"id":100,"name":"New Item"}'
+        import json
+
+        assert (
+            json.loads(route.calls.last.request.content) == item_to_create.model_dump()
+        )
+
         assert isinstance(result, Item)
         assert result.id == 100

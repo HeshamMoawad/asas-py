@@ -3,12 +3,12 @@ import respx
 from httpx import Response as HttpxResponse
 
 from asas.core.models import Request
-from asas.engines.httpx import HTTPXEngine
+from asas.engines.httpx import HTTPXAsyncEngine, HTTPXSyncEngine
 
 
 @pytest.mark.asyncio
 async def test_httpx_engine_async() -> None:
-    engine = HTTPXEngine()
+    engine = HTTPXAsyncEngine()
     async with respx.mock(base_url="https://api.example.com") as respx_mock:
         respx_mock.get("/test").mock(
             return_value=HttpxResponse(200, json={"message": "async-success"})
@@ -23,7 +23,7 @@ async def test_httpx_engine_async() -> None:
 
 
 def test_httpx_engine_sync() -> None:
-    engine = HTTPXEngine()
+    engine = HTTPXSyncEngine()
     with respx.mock(base_url="https://api.example.com") as respx_mock:
         respx_mock.get("/test").mock(
             return_value=HttpxResponse(200, json={"message": "sync-success"})
