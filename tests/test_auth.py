@@ -2,7 +2,15 @@ import pytest
 import respx
 from httpx import Response as HttpxResponse
 
-from asas import APIKeyAuth, AsasClient, BasicAuth, BearerAuth, Response, get
+from asas import (
+    APIKeyAuth,
+    APIKeyLocation,
+    AsasClient,
+    BasicAuth,
+    BearerAuth,
+    Response,
+    get,
+)
 
 
 class AuthClient(AsasClient):
@@ -49,7 +57,7 @@ def test_api_key_header_auth() -> None:
 
 
 def test_api_key_query_auth() -> None:
-    auth = APIKeyAuth("secret-key", name="api_key", location="query")
+    auth = APIKeyAuth("secret-key", name="api_key", location=APIKeyLocation.QUERY)
     client = AuthClient(base_url="https://api.example.com", auth=auth)
 
     with respx.mock(base_url="https://api.example.com") as respx_mock:
@@ -60,6 +68,15 @@ def test_api_key_query_auth() -> None:
 
         assert client.get_protected() is True
         assert route.called
+
+
+def test_api_key_location_accepts_string() -> None:
+    # Backwards compatible: plain strings are coerced to the enum.
+    auth = APIKeyAuth("secret-key", location="query")
+    assert auth.location is APIKeyLocation.QUERY
+
+    with pytest.raises(ValueError):
+        APIKeyAuth("secret-key", location="cookie")
 
 
 def test_runtime_auth_update() -> None:
