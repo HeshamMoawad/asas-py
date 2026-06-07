@@ -1,7 +1,15 @@
 import base64
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from enum import Enum
+from typing import Any, Callable, Optional, Protocol, Union, runtime_checkable
 
 from asas.core.models import Request
+
+
+class APIKeyLocation(str, Enum):
+    """Where an API key is placed in the request."""
+
+    HEADER = "header"
+    QUERY = "query"
 
 
 @runtime_checkable
@@ -26,7 +34,7 @@ class RefreshableAuth(Auth, Protocol):
         ...
 
 
-class BasicAuth:
+class BasicAuth(Auth):
     """HTTP Basic Authentication."""
 
     def __init__(self, username: str, password: str) -> None:
@@ -40,7 +48,7 @@ class BasicAuth:
         return request
 
 
-class BearerAuth:
+class BearerAuth(Auth):
     """Bearer Token Authentication."""
 
     def __init__(self, token: str) -> None:
@@ -51,7 +59,7 @@ class BearerAuth:
         return request
 
 
-class RefreshingBearerAuth:
+class RefreshingBearerAuth(RefreshableAuth):
     """
     Bearer Token Authentication with automatic refresh support.
     """
@@ -89,24 +97,33 @@ class RefreshingBearerAuth:
             raise NotImplementedError("No refresh callback provided")
 
 
-class APIKeyAuth:
+class APIKeyAuth(Auth):
     """
     API Key Authentication.
     Supports passing the key in headers or query parameters.
     """
 
     def __init__(
-        self, key: str, name: str = "X-API-Key", location: str = "header"
+        self,
+        key: str,
+        name: str = "X-API-Key",
+        location: Union[APIKeyLocation, str] = APIKeyLocation.HEADER,
     ) -> None:
         self.key = key
         self.name = name
-        self.location = location.lower()
-
-        if self.location not in ("header", "query"):
-            raise ValueError("location must be either 'header' or 'query'")
+        if isinstance(location, APIKeyLocation):
+            self.location = location
+        else:
+            try:
+                self.location = APIKeyLocation(location.lower())
+            except ValueError:
+                raise ValueError(
+                    "location must be one of "
+                    f"{[loc.value for loc in APIKeyLocation]}"
+                ) from None
 
     def apply(self, request: Request) -> Request:
-        if self.location == "header":
+        if self.location == APIKeyLocation.HEADER:
             request.headers[self.name] = self.key
         else:
             if request.params is None:

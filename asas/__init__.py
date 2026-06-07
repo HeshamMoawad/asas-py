@@ -1,4 +1,10 @@
-from asas.auth import APIKeyAuth, BasicAuth, BearerAuth, RefreshingBearerAuth
+from asas.auth import (
+    APIKeyAuth,
+    APIKeyLocation,
+    BasicAuth,
+    BearerAuth,
+    RefreshingBearerAuth,
+)
 from asas.client import AsasAsyncClient, AsasClient
 from asas.core.models import Payload, Request, Response
 from asas.decorators import delete, get, patch, post, put
@@ -20,5 +26,6 @@ __all__ = [
     "BasicAuth",
     "BearerAuth",
     "APIKeyAuth",
+    "APIKeyLocation",
     "RefreshingBearerAuth",
 ]
