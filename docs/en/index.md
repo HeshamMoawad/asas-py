@@ -66,7 +66,7 @@ Asas supports several authentication strategies out of the box:
 
 - **BasicAuth**: `BasicAuth("username", "password")`
 - **BearerAuth**: `BearerAuth("your-token")`
-- **APIKeyAuth**: `APIKeyAuth("your-key", name="X-API-Key", location="header")` (supports `header` or `query`)
+- **APIKeyAuth**: `APIKeyAuth("your-key", name="X-API-Key", location=APIKeyLocation.HEADER)` — `location` accepts the `APIKeyLocation` enum (`HEADER` or `QUERY`); a plain `"header"`/`"query"` string is also accepted.
 
 ```python
 from asas import AsasClient, BearerAuth
@@ -104,6 +104,43 @@ class MyClient(AsasClient):
     @get("/public-data", use_auth=False)
     def get_public(self, response: Response):
         return response.json()
+```
+
+### Request Bodies & Parameter Routing
+
+When you call a decorated method, Asas inspects each argument and routes it
+automatically based on its name and type:
+
+| Argument | Routed to |
+| --- | --- |
+| Name matches a `{placeholder}` in the path | Substituted into the URL |
+| A Pydantic `BaseModel` (or a list of them) | The JSON request body |
+| Anything else that isn't `None` | A query parameter |
+
+> **Important:** the request body must be a Pydantic model. A plain `dict` does
+> **not** become the body — it is sent as query parameters. Wrap body data in a
+> `BaseModel` to send it as JSON.
+
+```python
+from pydantic import BaseModel
+from asas import AsasClient, post, Response
+
+class CreateUser(BaseModel):
+    name: str
+    email: str
+
+class MyClient(AsasClient):
+    # {id}    -> substituted into the URL
+    # payload -> sent as the JSON body (it's a BaseModel)
+    # team    -> sent as a query parameter (?team=...)
+    @post("/teams/{id}/users")
+    def create_user(self, response: Response, id: int, payload: CreateUser, team: str):
+        return response.json()
+
+client = MyClient(base_url="https://api.example.com")
+client.create_user(id=42, payload=CreateUser(name="Ada", email="ada@example.com"), team="core")
+# POST https://api.example.com/teams/42/users?team=core
+# body: {"name": "Ada", "email": "ada@example.com"}
 ```
 
 ### Pydantic Integration

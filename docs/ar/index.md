@@ -66,7 +66,7 @@ async def main():
 
 - **BasicAuth**: `BasicAuth("username", "password")`
 - **BearerAuth**: `BearerAuth("your-token")`
-- **APIKeyAuth**: `APIKeyAuth("your-key", name="X-API-Key", location="header")` (يدعم `header` أو `query`)
+- **APIKeyAuth**: `APIKeyAuth("your-key", name="X-API-Key", location=APIKeyLocation.HEADER)` — يقبل `location` التعداد `APIKeyLocation` (`HEADER` أو `QUERY`)، كما يقبل أيضاً النص `"header"`/`"query"` العادي.
 
 ```python
 from asas import AsasClient, BearerAuth
@@ -104,6 +104,42 @@ class MyClient(AsasClient):
     @get("/public-data", use_auth=False)
     def get_public(self, response: Response):
         return response.json()
+```
+
+### نص الطلب وتوجيه المعاملات (Request Bodies & Parameter Routing)
+
+عند استدعاء دالة مزخرفة، يفحص أساس كل معامل ويوجّهه تلقائياً بناءً على اسمه ونوعه:
+
+| المعامل | يُوجَّه إلى |
+| --- | --- |
+| اسم يطابق `{placeholder}` في المسار | يُستبدل داخل الرابط (URL) |
+| نموذج Pydantic `BaseModel` (أو قائمة منها) | نص الطلب بصيغة JSON |
+| أي قيمة أخرى ليست `None` | معامل استعلام (query parameter) |
+
+> **مهم:** يجب أن يكون نص الطلب نموذج Pydantic. القاموس `dict` العادي **لا**
+> يُرسَل كنص للطلب — بل يُرسَل كمعاملات استعلام. ضع بيانات النص داخل `BaseModel`
+> لإرسالها بصيغة JSON.
+
+```python
+from pydantic import BaseModel
+from asas import AsasClient, post, Response
+
+class CreateUser(BaseModel):
+    name: str
+    email: str
+
+class MyClient(AsasClient):
+    # {id}    -> يُستبدل داخل الرابط
+    # payload -> يُرسَل كنص JSON (لأنه نموذج BaseModel)
+    # team    -> يُرسَل كمعامل استعلام (?team=...)
+    @post("/teams/{id}/users")
+    def create_user(self, response: Response, id: int, payload: CreateUser, team: str):
+        return response.json()
+
+client = MyClient(base_url="https://api.example.com")
+client.create_user(id=42, payload=CreateUser(name="Ada", email="ada@example.com"), team="core")
+# POST https://api.example.com/teams/42/users?team=core
+# body: {"name": "Ada", "email": "ada@example.com"}
 ```
 
 ### التكامل مع Pydantic
