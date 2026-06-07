@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from asas import (
     APIKeyAuth,
+    APIKeyLocation,
     AsasAsyncClient,
     AsasClient,
     BasicAuth,
@@ -26,6 +27,11 @@ class Product(BaseModel):
 class AuthResponse(BaseModel):
     token: str
     username: str
+
+
+class Credentials(BaseModel):
+    username: str
+    password: str
 
 
 # --- 2. Synchronous Client with Multiple Auth & use_auth ---
@@ -51,10 +57,12 @@ class SyncStoreClient(AsasClient):
         return response.json().get("orders", [])  # type: ignore[no-any-return]
 
     @post("/auth/login", response_model=AuthResponse, use_auth=False)
-    def login(
-        self, auth_data: AuthResponse, credentials: Dict[str, str]
-    ) -> AuthResponse:
-        """Login to get a token."""
+    def login(self, auth_data: AuthResponse, credentials: Credentials) -> AuthResponse:
+        """Login to get a token.
+
+        `credentials` is a Pydantic model, so it is sent as the JSON body.
+        A plain ``dict`` here would instead be routed to the query string.
+        """
         return auth_data
 
 
@@ -114,7 +122,14 @@ def main() -> None:
 
     # 3. API Key Auth Example
     print("Updating auth to API Key...")
-    client.auth = APIKeyAuth("my-api-key-123", name="X-Store-Key", location="header")
+    client.auth = APIKeyAuth(
+        "my-api-key-123", name="X-Store-Key", location=APIKeyLocation.HEADER
+    )
+
+    # 4. Building a request body: a Pydantic model is sent as JSON.
+    #    A call like client.login(credentials=creds) would POST this as the body.
+    creds = Credentials(username="admin", password="secret123")
+    print(f"Prepared login body for user: {creds.username}")
 
     # Clean up sync client
     client.engine.close()
