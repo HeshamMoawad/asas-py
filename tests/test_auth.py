@@ -76,7 +76,7 @@ def test_api_key_location_accepts_string() -> None:
     assert auth.location is APIKeyLocation.QUERY
 
     with pytest.raises(ValueError):
-        APIKeyAuth("secret-key", location="cookie")
+        APIKeyAuth("secret-key", location="body")
 
 
 def test_runtime_auth_update() -> None:
