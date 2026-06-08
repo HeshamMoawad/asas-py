@@ -1,8 +1,15 @@
 from asas.auth import (
     APIKeyAuth,
     APIKeyLocation,
+    Auth,
     BasicAuth,
     BearerAuth,
+    ChallengeResponseAuth,
+    CompositeAuth,
+    DigestAuth,
+    NoAuth,
+    OAuth2ClientCredentialsAuth,
+    RefreshableAuth,
     RefreshingBearerAuth,
 )
 from asas.client import AsasAsyncClient, AsasClient
@@ -23,9 +30,16 @@ __all__ = [
     "Response",
     "HTTPXSyncEngine",
     "HTTPXAsyncEngine",
+    "Auth",
+    "RefreshableAuth",
+    "ChallengeResponseAuth",
+    "NoAuth",
     "BasicAuth",
     "BearerAuth",
     "APIKeyAuth",
     "APIKeyLocation",
     "RefreshingBearerAuth",
+    "OAuth2ClientCredentialsAuth",
+    "DigestAuth",
+    "CompositeAuth",
 ]

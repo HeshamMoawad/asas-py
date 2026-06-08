@@ -77,7 +77,7 @@ def _make_request_decorator(method: str) -> Callable:
     def decorator(
         path: str, response_model: Optional[Any] = None, use_auth: bool = True
     ) -> Callable[[F], F]:
-        from asas.auth import RefreshableAuth
+        from asas.auth import ChallengeResponseAuth, RefreshableAuth
 
         def wrapper(func: F) -> F:
             is_async = inspect.iscoroutinefunction(func)
@@ -91,17 +91,26 @@ def _make_request_decorator(method: str) -> Callable:
                 _ensure_engine_capability(self.engine, "asend")
                 response = await self.engine.asend(request)
 
-                if (
-                    use_auth
-                    and response.status_code == 401
-                    and isinstance(self.auth, RefreshableAuth)
-                ):
-                    await self.auth.arefresh()
-                    # Re-build request to apply new auth
-                    request = _build_request(
-                        method, path, sig, self.base_url, self, args, kwargs, use_auth
-                    )
-                    response = await self.engine.asend(request)
+                if use_auth and response.status_code == 401:
+                    retry = False
+                    if isinstance(self.auth, ChallengeResponseAuth):
+                        retry = self.auth.handle_challenge(response)
+                    if not retry and isinstance(self.auth, RefreshableAuth):
+                        await self.auth.arefresh()
+                        retry = True
+                    if retry:
+                        # Re-build request to apply the updated auth
+                        request = _build_request(
+                            method,
+                            path,
+                            sig,
+                            self.base_url,
+                            self,
+                            args,
+                            kwargs,
+                            use_auth,
+                        )
+                        response = await self.engine.asend(request)
 
                 parsed = _parse_response(response, response_model)
                 result = await func(self, parsed, *args, **kwargs)
@@ -115,17 +124,26 @@ def _make_request_decorator(method: str) -> Callable:
                 _ensure_engine_capability(self.engine, "send")
                 response = self.engine.send(request)
 
-                if (
-                    use_auth
-                    and response.status_code == 401
-                    and isinstance(self.auth, RefreshableAuth)
-                ):
-                    self.auth.refresh()
-                    # Re-build request to apply new auth
-                    request = _build_request(
-                        method, path, sig, self.base_url, self, args, kwargs, use_auth
-                    )
-                    response = self.engine.send(request)
+                if use_auth and response.status_code == 401:
+                    retry = False
+                    if isinstance(self.auth, ChallengeResponseAuth):
+                        retry = self.auth.handle_challenge(response)
+                    if not retry and isinstance(self.auth, RefreshableAuth):
+                        self.auth.refresh()
+                        retry = True
+                    if retry:
+                        # Re-build request to apply the updated auth
+                        request = _build_request(
+                            method,
+                            path,
+                            sig,
+                            self.base_url,
+                            self,
+                            args,
+                            kwargs,
+                            use_auth,
+                        )
+                        response = self.engine.send(request)
 
                 parsed = _parse_response(response, response_model)
                 result = func(self, parsed, *args, **kwargs)
