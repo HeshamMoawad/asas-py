@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://heshammoawad.github.io/asas-py/authentication/">
       
       
-        <link rel="prev" href="../request-response/">
+        <link rel="prev" href="../resources/">
       
       
         <link rel="next" href="../engines/">
@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../assets/logo-without-bg.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -33,7 +33,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -452,6 +452,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources & Pagination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -581,21 +609,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#oauth2clientcredentialsauth" class="md-nav__link">
+  <a href="#customizing-when-a-refresh-happens" class="md-nav__link">
     <span class="md-ellipsis">
       
-        OAuth2ClientCredentialsAuth
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#digestauth" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        DigestAuth
+        Customizing when a refresh happens
       
     </span>
   </a>
@@ -848,21 +865,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#oauth2clientcredentialsauth" class="md-nav__link">
+  <a href="#customizing-when-a-refresh-happens" class="md-nav__link">
     <span class="md-ellipsis">
       
-        OAuth2ClientCredentialsAuth
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#digestauth" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        DigestAuth
+        Customizing when a refresh happens
       
     </span>
   </a>
@@ -947,14 +953,6 @@ constructing a client, and it is applied to every request (unless an endpoint op
 <tr>
 <td><a href="#refreshingbearerauth"><code>RefreshingBearerAuth</code></a></td>
 <td>A bearer token that refreshes on <code>401</code></td>
-</tr>
-<tr>
-<td><a href="#oauth2clientcredentialsauth"><code>OAuth2ClientCredentialsAuth</code></a></td>
-<td>The OAuth2 client-credentials grant</td>
-</tr>
-<tr>
-<td><a href="#digestauth"><code>DigestAuth</code></a></td>
-<td>HTTP Digest challenge/response</td>
 </tr>
 <tr>
 <td><a href="#compositeauth"><code>CompositeAuth</code></a></td>
@@ -1049,63 +1047,113 @@ Asas calls your refresh callback, rebuilds the request with the new token, and r
 <p>The refresh-and-retry happens at most once per call. If the retried request also returns
 <code>401</code>, that response is returned as-is.</p>
 </div>
-<h2 id="oauth2clientcredentialsauth">OAuth2ClientCredentialsAuth<a class="headerlink" href="#oauth2clientcredentialsauth" title="Permanent link">&para;</a></h2>
-<p>Implements the OAuth2 <strong>client-credentials</strong> grant. It mints a bearer token from your token
-endpoint and refreshes it on a <code>401</code>. The first protected call triggers the token request
-automatically.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsasClient</span><span class="p">,</span> <span class="n">OAuth2ClientCredentialsAuth</span>
+<h2 id="customizing-when-a-refresh-happens">Customizing when a refresh happens<a class="headerlink" href="#customizing-when-a-refresh-happens" title="Permanent link">&para;</a></h2>
+<p>By default a refresh fires only on an HTTP <code>401</code>. Many APIs signal an expired token
+differently — a <code>200</code> with an error code in the body, a keyword in the payload, or a
+non-standard status. Pass a <code>refresh_when</code> condition to override <em>when</em> the refresh-and-retry
+runs. This works on <code>RefreshingBearerAuth</code>.</p>
+<p>A condition is just a <code>Callable[[Response], bool]</code>. Asas ships builders for the common cases
+(import them from <code>asas</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Builder</th>
+<th>Refreshes when…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refresh_on_status(*codes)</code></td>
+<td>the status is one of <code>codes</code> (the default is <code>401</code>)</td>
+</tr>
+<tr>
+<td><code>refresh_on_keyword(keyword)</code></td>
+<td><code>keyword</code> appears anywhere in the response body</td>
+</tr>
+<tr>
+<td><code>refresh_on_json(key, value=…, status=…)</code></td>
+<td>the JSON body has <code>key</code> (optionally <code>== value</code>, optionally at a given status)</td>
+</tr>
+<tr>
+<td><code>refresh_on_any(*conditions)</code></td>
+<td>any of the conditions is true</td>
+</tr>
+<tr>
+<td><code>refresh_on_all(*conditions)</code></td>
+<td>all of the conditions are true</td>
+</tr>
+</tbody>
+</table>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Keyword in the body</label><label for="__tabbed_3_2">200 with a body key/value</label><label for="__tabbed_3_3">Custom status</label><label for="__tabbed_3_4">Combine conditions</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefreshingBearerAuth</span><span class="p">,</span> <span class="n">refresh_on_keyword</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">OAuth2ClientCredentialsAuth</span><span class="p">(</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">token_url</span><span class="o">=</span><span class="s2">&quot;https://auth.example.com/oauth/token&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;my-client-id&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">client_secret</span><span class="o">=</span><span class="s2">&quot;my-client-secret&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;read write&quot;</span><span class="p">,</span>   <span class="c1"># optional</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Refresh when the response body contains &quot;token_expired&quot; (even on a 200).</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">RefreshingBearerAuth</span><span class="p">(</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="s2">&quot;token&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">refresh_callback</span><span class="o">=</span><span class="n">get_new_token</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">refresh_when</span><span class="o">=</span><span class="n">refresh_on_keyword</span><span class="p">(</span><span class="s2">&quot;token_expired&quot;</span><span class="p">),</span>
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">)</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="n">client</span> <span class="o">=</span> <span class="n">AsasClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
 </code></pre></div>
-<p>By default the token request is performed with <code>httpx</code> (a <code>POST</code> of
-<code>grant_type=client_credentials</code>). To route it through a different transport, pass a
-<code>token_fetcher</code> (sync) or <code>async_token_fetcher</code> (async). Each receives the form fields and
-returns either the access-token string or a <code>{"access_token": ..., "expires_in": ...}</code>
-mapping:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">form</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">resp</span> <span class="o">=</span> <span class="n">my_http_lib</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;https://auth.example.com/oauth/token&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">form</span><span class="p">)</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="k">return</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>   <span class="c1"># {&quot;access_token&quot;: &quot;...&quot;, &quot;expires_in&quot;: 3600}</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">OAuth2ClientCredentialsAuth</span><span class="p">(</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">token_url</span><span class="o">=</span><span class="s2">&quot;https://auth.example.com/oauth/token&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">client_secret</span><span class="o">=</span><span class="s2">&quot;secret&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">token_fetcher</span><span class="o">=</span><span class="n">fetch</span><span class="p">,</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">)</span>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefreshingBearerAuth</span><span class="p">,</span> <span class="n">refresh_on_json</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># Refresh when the API replies 200 but the body says the token expired.</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">RefreshingBearerAuth</span><span class="p">(</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="s2">&quot;token&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">refresh_callback</span><span class="o">=</span><span class="n">get_new_token</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">refresh_when</span><span class="o">=</span><span class="n">refresh_on_json</span><span class="p">(</span><span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="s2">&quot;AUTH_EXPIRED&quot;</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">)</span>
 </code></pre></div>
-<p>When the token response includes <code>expires_in</code>, the <code>is_expired</code> property reflects it.</p>
-<h2 id="digestauth">DigestAuth<a class="headerlink" href="#digestauth" title="Permanent link">&para;</a></h2>
-<p>HTTP Digest authentication (RFC 7616), handled as a challenge/response:</p>
-<ol>
-<li>The first request is sent <strong>without</strong> credentials.</li>
-<li>The server replies <code>401</code> with a <code>WWW-Authenticate: Digest …</code> challenge.</li>
-<li>Asas feeds the challenge back to the strategy, rebuilds the request with the computed
-   digest, and retries it once.</li>
-</ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsasClient</span><span class="p">,</span> <span class="n">DigestAuth</span>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefreshingBearerAuth</span><span class="p">,</span> <span class="n">refresh_on_status</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">DigestAuth</span><span class="p">(</span><span class="s2">&quot;username&quot;</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">)</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">AsasClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1"># Some APIs use 419/440 for an expired session instead of 401.</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">RefreshingBearerAuth</span><span class="p">(</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="s2">&quot;token&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">refresh_callback</span><span class="o">=</span><span class="n">get_new_token</span><span class="p">,</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">refresh_when</span><span class="o">=</span><span class="n">refresh_on_status</span><span class="p">(</span><span class="mi">419</span><span class="p">,</span> <span class="mi">440</span><span class="p">),</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">)</span>
 </code></pre></div>
-<p>Supports <code>qop=auth</code> and the <code>MD5</code> and <code>SHA-256</code> algorithms. Subsequent requests reuse the
-cached challenge with an incrementing nonce count.</p>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefreshingBearerAuth</span><span class="p">,</span> <span class="n">refresh_on_any</span><span class="p">,</span> <span class="n">refresh_on_status</span><span class="p">,</span> <span class="n">refresh_on_keyword</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">RefreshingBearerAuth</span><span class="p">(</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="s2">&quot;token&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">refresh_callback</span><span class="o">=</span><span class="n">get_new_token</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">refresh_when</span><span class="o">=</span><span class="n">refresh_on_any</span><span class="p">(</span><span class="n">refresh_on_status</span><span class="p">(</span><span class="mi">401</span><span class="p">),</span> <span class="n">refresh_on_keyword</span><span class="p">(</span><span class="s2">&quot;expired&quot;</span><span class="p">)),</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="p">)</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p><code>refresh_on_json</code> accepts a dotted <code>key</code> for nested bodies (e.g. <code>"error.code"</code>).</p>
+<p>For full control, subclass the auth and override <code>should_refresh(response) -&gt; bool</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">HeaderRefreshAuth</span><span class="p">(</span><span class="n">RefreshingBearerAuth</span><span class="p">):</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">should_refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="c1"># Response header names are lowercased.</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;x-token-expired&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Custom auth strategies are unaffected</p>
+<p>The condition is read from an optional <code>should_refresh</code> method. An auth strategy that
+only implements <code>refresh</code> / <code>arefresh</code> keeps the default <code>401</code> behaviour.</p>
+</div>
 <h2 id="compositeauth">CompositeAuth<a class="headerlink" href="#compositeauth" title="Permanent link">&para;</a></h2>
 <p>Apply several strategies to one request, in order — handy when an API needs more than one
 credential at once (for example an API key <strong>and</strong> a bearer token):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsasClient</span><span class="p">,</span> <span class="n">CompositeAuth</span><span class="p">,</span> <span class="n">APIKeyAuth</span><span class="p">,</span> <span class="n">BearerAuth</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">CompositeAuth</span><span class="p">(</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">APIKeyAuth</span><span class="p">(</span><span class="s2">&quot;key-123&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;X-API-Key&quot;</span><span class="p">),</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">BearerAuth</span><span class="p">(</span><span class="s2">&quot;token-abc&quot;</span><span class="p">),</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">)</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">client</span> <span class="o">=</span> <span class="n">AsasClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="c1"># -&gt; X-API-Key: key-123  AND  Authorization: Bearer token-abc</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsasClient</span><span class="p">,</span> <span class="n">CompositeAuth</span><span class="p">,</span> <span class="n">APIKeyAuth</span><span class="p">,</span> <span class="n">BearerAuth</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">CompositeAuth</span><span class="p">(</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">APIKeyAuth</span><span class="p">(</span><span class="s2">&quot;key-123&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;X-API-Key&quot;</span><span class="p">),</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">BearerAuth</span><span class="p">(</span><span class="s2">&quot;token-abc&quot;</span><span class="p">),</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">)</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">client</span> <span class="o">=</span> <span class="n">AsasClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="c1"># -&gt; X-API-Key: key-123  AND  Authorization: Bearer token-abc</span>
 </code></pre></div>
 <p>Refresh and challenge handling are delegated to any members that support them, so a
 <code>CompositeAuth</code> containing a <code>RefreshingBearerAuth</code> still refreshes on <code>401</code>.</p>
@@ -1116,20 +1164,20 @@ that mutates headers or query params. Two protocols extend it:</p>
 <li><strong><code>RefreshableAuth</code></strong> adds <code>refresh()</code> / <code>arefresh()</code>, called on a <code>401</code> to renew
   credentials before one retry.</li>
 <li><strong><code>ChallengeResponseAuth</code></strong> adds <code>handle_challenge(response) -&gt; bool</code>, called on a <code>401</code> so
-  schemes like Digest can read the server's challenge before retrying.</li>
+  a scheme can read the server's challenge before retrying.</li>
 </ul>
 <p>To build your own scheme, implement <code>apply</code> (and optionally one of the two protocols above):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">Auth</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Request</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">HeaderAuth</span><span class="p">(</span><span class="n">Auth</span><span class="p">):</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Request</span><span class="p">:</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>        <span class="k">return</span> <span class="n">request</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">Auth</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asas.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Request</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">HeaderAuth</span><span class="p">(</span><span class="n">Auth</span><span class="p">):</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Request</span><span class="p">:</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>        <span class="k">return</span> <span class="n">request</span>
 </code></pre></div>
 <p>See <a href="../models/">Core Models</a> for the <code>Request</code> shape your <code>apply</code> method receives.</p>
 
@@ -1192,7 +1240,7 @@ that mutates headers or query params. Two protocols extend it:</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "navigation.tracking", "toc.follow", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

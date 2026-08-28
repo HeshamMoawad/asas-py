@@ -2,98 +2,112 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
         <loc>https://heshammoawad.github.io/asas-py/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/authentication/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/authentication/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/authentication/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/clients/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/clients/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/clients/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/engines/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/engines/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/engines/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/models/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/models/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/models/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/request-response/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/request-response/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/request-response/"/>
     </url>
     <url>
+        <loc>https://heshammoawad.github.io/asas-py/resources/</loc>
+        <lastmod>2026-08-28</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/resources/"/>
+        <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/resources/"/>
+    </url>
+    <url>
         <loc>https://heshammoawad.github.io/asas-py/routing/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/routing/"/>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/routing/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/authentication/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/authentication/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/authentication/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/clients/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/clients/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/clients/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/engines/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/engines/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/engines/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/models/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/models/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/models/"/>
     </url>
     <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/request-response/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/request-response/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/request-response/"/>
     </url>
     <url>
+        <loc>https://heshammoawad.github.io/asas-py/ar/resources/</loc>
+        <lastmod>2026-08-28</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/resources/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/resources/"/>
+    </url>
+    <url>
         <loc>https://heshammoawad.github.io/asas-py/ar/routing/</loc>
-        <lastmod>2026-06-08</lastmod>
+        <lastmod>2026-08-28</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ar" href="https://heshammoawad.github.io/asas-py/ar/routing/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://heshammoawad.github.io/asas-py/routing/"/>
