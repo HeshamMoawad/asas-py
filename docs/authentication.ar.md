@@ -19,8 +19,6 @@ client = AsasClient(base_url="https://api.example.com", auth=BearerAuth("token")
 | `BearerAuth` | رمز حامل ثابت |
 | `APIKeyAuth` | مفتاح API في ترويسة أو استعلام أو كوكي |
 | `RefreshingBearerAuth` | رمز حامل يتجدّد عند `401` |
-| `OAuth2ClientCredentialsAuth` | منح OAuth2 ببيانات اعتماد العميل |
-| `DigestAuth` | مصادقة HTTP Digest بالتحدّي/الاستجابة |
 | `CompositeAuth` | الجمع بين عدّة استراتيجيات معًا |
 
 ## NoAuth
@@ -127,61 +125,89 @@ auth = BearerAuth("my-secret-token")
     يحدث التجديد وإعادة المحاولة مرّة واحدة على الأكثر لكل نداء. وإذا عاد الطلب المُعاد بـ
     `401` أيضًا، تُعاد تلك الاستجابة كما هي.
 
-## OAuth2ClientCredentialsAuth
+## تخصيص متى يحدث التجديد
 
-تطبّق منح OAuth2 **ببيانات اعتماد العميل** (client-credentials). تسكّ رمزًا حاملًا من نقطة
-نهاية الرمز لديك وتجدّده عند `401`. يُطلق أول نداء محمي طلبَ الرمز تلقائيًا.
+افتراضيًا لا يحدث التجديد إلّا عند `401` من HTTP. لكن كثيرًا من الواجهات تشير إلى انتهاء
+صلاحية الرمز بطريقة مختلفة — استجابة `200` تحمل رمز خطأ في الجسم، أو كلمة مفتاحية في الحمولة،
+أو رمز حالة غير قياسي. مرِّر شرط `refresh_when` لتجاوز *متى* يُنفَّذ التجديد وإعادة المحاولة.
+يعمل هذا مع `RefreshingBearerAuth`.
+
+الشرط ما هو إلّا `Callable[[Response], bool]`. ويوفّر أساس بُناةً للحالات الشائعة (استوردها من
+`asas`):
+
+| الباني | يُجدّد عندما… |
+| --- | --- |
+| `refresh_on_status(*codes)` | تكون الحالة إحدى `codes` (الافتراضي `401`) |
+| `refresh_on_keyword(keyword)` | تظهر `keyword` في أي مكان من جسم الاستجابة |
+| `refresh_on_json(key, value=…, status=…)` | يحوي جسم JSON المفتاح `key` (واختياريًا `== value`، واختياريًا عند حالة معيّنة) |
+| `refresh_on_any(*conditions)` | يتحقّق أيّ من الشروط |
+| `refresh_on_all(*conditions)` | تتحقّق كل الشروط |
+
+=== "كلمة مفتاحية في الجسم"
+
+    ```python
+    from asas import RefreshingBearerAuth, refresh_on_keyword
+
+    # جدّد عندما يحوي جسم الاستجابة "token_expired" (حتى مع 200).
+    auth = RefreshingBearerAuth(
+        "token",
+        refresh_callback=get_new_token,
+        refresh_when=refresh_on_keyword("token_expired"),
+    )
+    ```
+
+=== "200 مع مفتاح/قيمة في الجسم"
+
+    ```python
+    from asas import RefreshingBearerAuth, refresh_on_json
+
+    # جدّد عندما تردّ الواجهة 200 لكن الجسم يقول إن الرمز انتهى.
+    auth = RefreshingBearerAuth(
+        "token",
+        refresh_callback=get_new_token,
+        refresh_when=refresh_on_json("code", "AUTH_EXPIRED", status=200),
+    )
+    ```
+
+=== "حالة مخصّصة"
+
+    ```python
+    from asas import RefreshingBearerAuth, refresh_on_status
+
+    # بعض الواجهات تستخدم 419/440 لانتهاء الجلسة بدلًا من 401.
+    auth = RefreshingBearerAuth(
+        "token",
+        refresh_callback=get_new_token,
+        refresh_when=refresh_on_status(419, 440),
+    )
+    ```
+
+=== "دمج الشروط"
+
+    ```python
+    from asas import RefreshingBearerAuth, refresh_on_any, refresh_on_status, refresh_on_keyword
+
+    auth = RefreshingBearerAuth(
+        "token",
+        refresh_callback=get_new_token,
+        refresh_when=refresh_on_any(refresh_on_status(401), refresh_on_keyword("expired")),
+    )
+    ```
+
+يقبل `refresh_on_json` مفتاحًا منقّطًا `key` للأجسام المتداخلة (مثل `"error.code"`).
+
+وللتحكّم الكامل، ورِث الاستراتيجية وتجاوز `should_refresh(response) -> bool`:
 
 ```python
-from asas import AsasClient, OAuth2ClientCredentialsAuth
-
-auth = OAuth2ClientCredentialsAuth(
-    token_url="https://auth.example.com/oauth/token",
-    client_id="my-client-id",
-    client_secret="my-client-secret",
-    scope="read write",   # اختياري
-)
-client = AsasClient(base_url="https://api.example.com", auth=auth)
+class HeaderRefreshAuth(RefreshingBearerAuth):
+    def should_refresh(self, response):
+        # أسماء ترويسات الاستجابة بأحرف صغيرة.
+        return response.headers.get("x-token-expired") == "1"
 ```
 
-افتراضيًا يُنفَّذ طلب الرمز بـ `httpx` (طلب `POST` لـ `grant_type=client_credentials`).
-لتوجيهه عبر طبقة نقل مختلفة، مرِّر `token_fetcher` (متزامن) أو `async_token_fetcher` (غير
-متزامن). يتلقّى كلٌّ منهما حقول النموذج ويعيد إمّا سلسلة رمز الوصول أو قاموسًا بالشكل
-`{"access_token": ..., "expires_in": ...}`:
-
-```python
-def fetch(form: dict) -> dict:
-    resp = my_http_lib.post("https://auth.example.com/oauth/token", data=form)
-    return resp.json()   # {"access_token": "...", "expires_in": 3600}
-
-auth = OAuth2ClientCredentialsAuth(
-    token_url="https://auth.example.com/oauth/token",
-    client_id="id",
-    client_secret="secret",
-    token_fetcher=fetch,
-)
-```
-
-عندما تتضمّن استجابة الرمز `expires_in`، تعكس ذلك الخاصية `is_expired`.
-
-## DigestAuth
-
-مصادقة HTTP Digest (RFC 7616)، تُعالَج بالتحدّي/الاستجابة:
-
-1. يُرسَل الطلب الأول **دون** بيانات اعتماد.
-2. يردّ الخادم بـ `401` مع تحدٍّ `WWW-Authenticate: Digest …`.
-3. يعيد أساس تغذية التحدّي إلى الاستراتيجية، ويعيد بناء الطلب بالملخّص (digest) المحسوب،
-   ويعيد المحاولة مرّة واحدة.
-
-```python
-from asas import AsasClient, DigestAuth
-
-auth = DigestAuth("username", "password")
-client = AsasClient(base_url="https://api.example.com", auth=auth)
-```
-
-يدعم `qop=auth` وخوارزميتَي `MD5` و`SHA-256`. وتعيد الطلبات اللاحقة استخدام التحدّي المخزّن
-مع عدّاد nonce متزايد.
+!!! note "استراتيجيات المصادقة المخصّصة لا تتأثّر"
+    يُقرأ الشرط من دالة `should_refresh` اختيارية. أما الاستراتيجية التي تطبّق `refresh` /
+    `arefresh` فقط فتحتفظ بسلوك `401` الافتراضي.
 
 ## CompositeAuth
 
@@ -210,7 +236,7 @@ client = AsasClient(base_url="https://api.example.com", auth=auth)
 - **`RefreshableAuth`** يضيف `refresh()` / `arefresh()`، يُستدعى عند `401` لتجديد بيانات
   الاعتماد قبل إعادة محاولة واحدة.
 - **`ChallengeResponseAuth`** يضيف `handle_challenge(response) -> bool`، يُستدعى عند `401`
-  كي تتمكّن أنظمة مثل Digest من قراءة تحدّي الخادم قبل إعادة المحاولة.
+  كي تتمكّن الاستراتيجية من قراءة تحدّي الخادم قبل إعادة المحاولة.
 
 لبناء نظامك الخاص، طبّق `apply` (واختياريًا أحد البروتوكولين أعلاه):
 

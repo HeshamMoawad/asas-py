@@ -13,12 +13,11 @@ from asas import (
     BasicAuth,
     BearerAuth,
     CompositeAuth,
-    DigestAuth,
     NoAuth,
-    OAuth2ClientCredentialsAuth,
     RefreshingBearerAuth,
     Response,
     get,
+    refresh_on_json,
 )
 
 
@@ -57,21 +56,18 @@ def main() -> None:
         auth=RefreshingBearerAuth("token", refresh_callback=lambda: "fresh-token"),
     )
 
-    # 6. OAuth2 client-credentials grant (token minted lazily, refreshed on 401).
+    # 5b. Override *when* a refresh happens (here: a 200 whose body says the
+    #     token expired, instead of the default 401).
     ProtectedClient(
         base_url=base,
-        auth=OAuth2ClientCredentialsAuth(
-            token_url="https://auth.example.com/oauth/token",
-            client_id="my-client-id",
-            client_secret="my-client-secret",
-            scope="read write",
+        auth=RefreshingBearerAuth(
+            "token",
+            refresh_callback=lambda: "fresh-token",
+            refresh_when=refresh_on_json("code", "AUTH_EXPIRED", status=200),
         ),
     )
 
-    # 7. HTTP Digest (challenge/response handled automatically).
-    ProtectedClient(base_url=base, auth=DigestAuth("username", "password"))
-
-    # 8. Composite — combine several schemes on one request.
+    # 6. Composite — combine several schemes on one request.
     ProtectedClient(
         base_url=base,
         auth=CompositeAuth(
