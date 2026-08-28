@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 from pydantic import BaseModel
 
 from asas.core.models import Payload, Request
+from asas.refresh import evaluate_refresh
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -67,84 +68,104 @@ def _ensure_engine_capability(engine: Any, method_name: str) -> None:
     if not hasattr(engine, method_name):
         mode = "asynchronous" if method_name == "asend" else "synchronous"
         protocol = "AsyncEngine" if method_name == "asend" else "SyncEngine"
+        hint = ""
+        if method_name == "asend" and type(engine).__name__ == "RequestsSyncEngine":
+            hint = (
+                " The `requests` engine is synchronous only (it has no async "
+                "support). Use `AsasClient` instead of `AsasAsyncClient`, or "
+                "pass an httpx engine (e.g. `HTTPXAsyncEngine`)."
+            )
         raise TypeError(
             f"Engine {type(engine).__name__} does not support {mode} requests. "
-            f"Make sure your engine implements {protocol} protocol."
+            f"Make sure your engine implements {protocol} protocol.{hint}"
         )
+
+
+def execute_sync(
+    instance: Any, build: Callable[[], Request], use_auth: bool = True
+) -> Any:
+    """Send a request synchronously, retrying once on a ``401``.
+
+    ``build`` returns a fresh :class:`Request` each call so the retry re-applies
+    any refreshed credentials. Shared by the request decorators and resources so
+    the auth-retry behaviour stays identical everywhere.
+    """
+    from asas.auth import ChallengeResponseAuth, RefreshableAuth
+
+    _ensure_engine_capability(instance.engine, "send")
+    response = instance.engine.send(build())
+
+    if use_auth:
+        auth = getattr(instance, "auth", None)
+        retry = False
+        if response.status_code == 401 and isinstance(auth, ChallengeResponseAuth):
+            retry = auth.handle_challenge(response)
+        if (
+            not retry
+            and isinstance(auth, RefreshableAuth)
+            and evaluate_refresh(auth, response)
+        ):
+            auth.refresh()
+            retry = True
+        if retry:
+            response = instance.engine.send(build())
+    return response
+
+
+async def execute_async(
+    instance: Any, build: Callable[[], Request], use_auth: bool = True
+) -> Any:
+    """Asynchronous counterpart of :func:`execute_sync`."""
+    from asas.auth import ChallengeResponseAuth, RefreshableAuth
+
+    _ensure_engine_capability(instance.engine, "asend")
+    response = await instance.engine.asend(build())
+
+    if use_auth:
+        auth = getattr(instance, "auth", None)
+        retry = False
+        if response.status_code == 401 and isinstance(auth, ChallengeResponseAuth):
+            retry = auth.handle_challenge(response)
+        if (
+            not retry
+            and isinstance(auth, RefreshableAuth)
+            and evaluate_refresh(auth, response)
+        ):
+            await auth.arefresh()
+            retry = True
+        if retry:
+            response = await instance.engine.asend(build())
+    return response
 
 
 def _make_request_decorator(method: str) -> Callable:
     def decorator(
         path: str, response_model: Optional[Any] = None, use_auth: bool = True
     ) -> Callable[[F], F]:
-        from asas.auth import ChallengeResponseAuth, RefreshableAuth
-
         def wrapper(func: F) -> F:
             is_async = inspect.iscoroutinefunction(func)
             sig = inspect.signature(func)
 
             @functools.wraps(func)
             async def async_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-                request = _build_request(
-                    method, path, sig, self.base_url, self, args, kwargs, use_auth
-                )
-                _ensure_engine_capability(self.engine, "asend")
-                response = await self.engine.asend(request)
+                def build() -> Request:
+                    return _build_request(
+                        method, path, sig, self.base_url, self, args, kwargs, use_auth
+                    )
 
-                if use_auth and response.status_code == 401:
-                    retry = False
-                    if isinstance(self.auth, ChallengeResponseAuth):
-                        retry = self.auth.handle_challenge(response)
-                    if not retry and isinstance(self.auth, RefreshableAuth):
-                        await self.auth.arefresh()
-                        retry = True
-                    if retry:
-                        # Re-build request to apply the updated auth
-                        request = _build_request(
-                            method,
-                            path,
-                            sig,
-                            self.base_url,
-                            self,
-                            args,
-                            kwargs,
-                            use_auth,
-                        )
-                        response = await self.engine.asend(request)
-
+                response = await execute_async(self, build, use_auth)
                 parsed = _parse_response(response, response_model)
                 result = await func(self, parsed, *args, **kwargs)
                 return result if result is not None else parsed
 
             @functools.wraps(func)
             def sync_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-                request = _build_request(
-                    method, path, sig, self.base_url, self, args, kwargs, use_auth
-                )
-                _ensure_engine_capability(self.engine, "send")
-                response = self.engine.send(request)
+                def build() -> Request:
+                    return _build_request(
+                        method, path, sig, self.base_url, self, args, kwargs, use_auth
+                    )
 
-                if use_auth and response.status_code == 401:
-                    retry = False
-                    if isinstance(self.auth, ChallengeResponseAuth):
-                        retry = self.auth.handle_challenge(response)
-                    if not retry and isinstance(self.auth, RefreshableAuth):
-                        self.auth.refresh()
-                        retry = True
-                    if retry:
-                        # Re-build request to apply the updated auth
-                        request = _build_request(
-                            method,
-                            path,
-                            sig,
-                            self.base_url,
-                            self,
-                            args,
-                            kwargs,
-                            use_auth,
-                        )
-                        response = self.engine.send(request)
-
+                response = execute_sync(self, build, use_auth)
                 parsed = _parse_response(response, response_model)
                 result = func(self, parsed, *args, **kwargs)
                 return result if result is not None else parsed

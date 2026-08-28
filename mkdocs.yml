@@ -20,6 +20,7 @@ nav:
       - Clients: clients.md
       - Routing & Parameters: routing.md
       - Request Bodies & Responses: request-response.md
+      - Resources & Pagination: resources.md
       - Authentication: authentication.md
   - Reference:
       - Engines & Transports: engines.md
