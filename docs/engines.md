@@ -48,11 +48,43 @@ client = AsasClient(
 Passing the engine explicitly is useful when you want to share one engine between clients or
 configure it in a single place.
 
+## The bundled requests engine (optional extra)
+
+Asas also ships an engine built on [`requests`](https://requests.readthedocs.io/). Install it
+with the `requests` extra:
+
+```bash
+pip install "asas-py[requests]"
+```
+
+`httpx` remains the default engine that ships with `asas-py`; the `requests` engine is an
+optional alternative you opt into per client. Import it from its own module (never imported by
+the top-level package) and pass it via `engine=`:
+
+```python
+from asas import AsasClient
+from asas.engines.requests import RequestsSyncEngine
+
+client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngine())
+```
+
+It lazily creates a `requests.Session` and forwards any constructor `**kwargs` to it, just like
+the httpx engine. It also supports JSON bodies, raw `data`, `files`, query params, and custom
+headers through the same [`Payload`](models.md).
+
+!!! warning "Synchronous only"
+    The `requests` library has no native async support, so the requests engine is
+    **synchronous only** — there is no `RequestsAsyncEngine`. Use it with `AsasClient` (not
+    `AsasAsyncClient`). Calling an async endpoint on a client backed by this engine raises a
+    `TypeError` explaining that it is sync-only; switch to `AsasClient` or use the httpx
+    engine (`HTTPXAsyncEngine`) for async.
+
 ## Writing a custom engine
 
-To support another transport (`requests`, `aiohttp`, an in-memory test double, …),
-implement the protocol and convert to and from `asas.core.models`. Nothing else in the
-framework needs to change.
+To support another transport (`aiohttp`, `urllib`, an in-memory test double, …), implement the
+protocol and convert to and from `asas.core.models`. Nothing else in the framework needs to
+change. (A `requests` engine is already bundled — see
+[above](#the-bundled-requests-engine-optional-extra); you don't need to write your own.)
 
 ```python
 import requests

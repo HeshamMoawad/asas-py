@@ -46,10 +46,43 @@ client = AsasClient(
 
 تمرير المحرّك صراحةً مفيد عندما تريد مشاركة محرّك واحد بين عدّة عملاء أو ضبطه في مكان واحد.
 
+## محرّك requests المرفق (إضافة اختيارية)
+
+يشحن أساس أيضًا محرّكًا مبنيًا على [`requests`](https://requests.readthedocs.io/). ثبّته عبر
+إضافة `requests`:
+
+```bash
+pip install "asas-py[requests]"
+```
+
+يبقى `httpx` المحرّكَ الافتراضيَ الذي يشحنه `asas-py`؛ أما محرّك `requests` فهو بديل اختياري
+تختاره لكل عميل على حدة. استورده من وحدته الخاصة (لا يستورده مستوى الحزمة الأعلى إطلاقًا)
+ومرّره عبر `engine=`:
+
+```python
+from asas import AsasClient
+from asas.engines.requests import RequestsSyncEngine
+
+client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngine())
+```
+
+ينشئ محاور `requests.Session` بتراخٍ ويعيد توجيه أي `**kwargs` إلى مُنشئه، تمامًا مثل محرّك
+`httpx`. وهو يدعم أيضًا أجسام JSON والبيانات الخام `data` والملفات `files` ووسائط الاستعلام
+والترويسات المخصّصة عبر [`Payload`](models.md) نفسه.
+
+!!! warning "متزامن فقط"
+    لا تدعم مكتبة `requests` غير المتزامن أصلاً، لذا فإن محرّك `requests` **متزامن فقط** —
+    لا يوجد `RequestsAsyncEngine`. استخدمه مع `AsasClient` (وليس `AsasAsyncClient`). إن
+    استدعت نقطة نهاية غير متزامنة على عميل يعتمد هذا المحرّك، يُرفع `TypeError` يوضّح أنه
+    متزامن فقط؛ انتقل إلى `AsasClient` أو استخدم محرّك `httpx` (`HTTPXAsyncEngine`) للعمل
+    غير المتزامن.
+
 ## كتابة محرّك مخصّص
 
-لدعم طبقة نقل أخرى (`requests`، `aiohttp`، بديل اختبار في الذاكرة، …)، طبّق البروتوكول
-وحوِّل من وإلى `asas.core.models`. لا شيء آخر في الإطار يحتاج إلى تغيير.
+لدعم طبقة نقل أخرى (`aiohttp`، `urllib`، بديل اختبار في الذاكرة، …)، طبّق البروتوكول
+وحوِّل من وإلى `asas.core.models`. لا شيء آخر في الإطار يحتاج إلى تغيير. (محرّك `requests`
+مرفق بالفعل — راجع [أعلاه](#محرك-requests-المرفق-إضافة-اختيارية)؛ لست بحاجة إلى كتابته
+بنفسك.)
 
 ```python
 import requests

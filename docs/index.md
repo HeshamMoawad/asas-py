@@ -77,9 +77,11 @@ on both — Asas auto-detects `async def` methods.
   automatic path, query, and body routing.
 - **[Request bodies & responses](request-response.md)** — Pydantic models in, validated
   models out via `response_model`.
-- **[Authentication](authentication.md)** — Basic, Bearer, API key, OAuth2, Digest,
-  automatic refresh, and composite strategies.
+- **[Resources & pagination](resources.md)** — convention-driven CRUD and lazy iteration
+  over every record, with no page-loop code.
+- **[Authentication](authentication.md)** — Basic, Bearer, API key, automatic refresh, and
+  composite strategies.
 - **[Engines & transports](engines.md)** — a transport-agnostic core; `httpx` is the
-  bundled reference engine.
+  bundled reference engine, with an optional `requests` engine extra.
 - **[Core models](models.md)** — plain `Request` / `Response` / `Payload` dataclasses that
   every layer speaks.
