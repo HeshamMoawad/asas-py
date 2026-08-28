@@ -201,8 +201,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and coding standard
 
 ## Documentation
 
-Full docs (English + العربية): [asas.dev](https://asas.dev) or
-[heshammoawad.github.io/asas-py](https://heshammoawad.github.io/asas-py/)
+Full docs (English + العربية): [heshammoawad.github.io/asas-py](https://heshammoawad.github.io/asas-py/)
 
 - [Clients](docs/clients.md)
 - [Routing & Parameters](docs/routing.md)
