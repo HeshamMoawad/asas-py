@@ -39,7 +39,7 @@ pip install asas-py             # + Pydantic + httpx (the default engine)
 pip install "asas-py[requests]" # + the optional sync-only requests engine
 ```
 
-Python 3.9+ (see [Documentation](#documentation) for the Arabic guide).
+Python 3.9+ (see [Documentation](https://heshammoawad.github.io/asas-py/) for the Arabic guide).
 
 ## Quick start
 
