@@ -1,0 +1,77 @@
+site_name: Asas-py Documentation
+repo_url: https://github.com/HeshamMoawad/asas-py
+repo_name: HeshamMoawad/asas-py
+site_url: https://heshammoawad.github.io/asas-py/
+plugins:
+  - search
+  - i18n:
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ar
+          name: العربية
+          build: true
+      fallback_to_default: true
+nav:
+  - Home: index.md
+  - User Guide:
+      - Clients: clients.md
+      - Routing & Parameters: routing.md
+      - Request Bodies & Responses: request-response.md
+      - Resources & Pagination: resources.md
+      - Authentication: authentication.md
+  - Reference:
+      - Engines & Transports: engines.md
+      - Core Models: models.md
+
+theme:
+  name: material
+  favicon: assets/logo-without-bg.png
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.highlight
+  palette:
+    # Light Mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+    # Dark Mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+
+# Extra CSS to make colors consistent with logo
+extra_css:
+  - stylesheets/extra.css

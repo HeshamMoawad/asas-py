@@ -1,0 +1,14 @@
+:root {
+  /* Colors from logo */
+  --md-primary-fg-color: #004b8d;
+  --md-primary-fg-color--light: #4c77a8;
+  --md-primary-fg-color--dark: #00254d;
+
+  --md-accent-fg-color: #00d4aa;
+  --md-accent-fg-color--transparent: rgba(0, 212, 170, 0.1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #004b8d;
+  --md-accent-fg-color: #00d4aa;
+}
