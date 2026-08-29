@@ -15,7 +15,7 @@
 
 ---
 
-> **Asas** is a Python framework for building **typed, elegant API clients** in a few lines.
+> **Asas** is a Python framework for building **typed, simple API clients** in a few lines.
 > You write a subclass, annotate methods with `@get`/`@post`/…, and Asas handles request
 > building, parameter routing, Pydantic validation, authentication, refresh-and-retry, and
 > paging for you — for synchronous **and** asynchronous code with the same decorators.

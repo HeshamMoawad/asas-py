@@ -19,7 +19,7 @@ It is engineered for modern Python: native `async`/`await` support and first-cla
 
 ## Goal
 
-The core objective of Asas is to make API integration more **Pythonic**, elegant, and
+The core objective of Asas is to make API integration more **Pythonic**, simple, and
 maintainable. By abstracting the verbosity of traditional request libraries, Asas lets you
 focus on clear architecture and expressive code.
 
