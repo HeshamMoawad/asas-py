@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = [
   { name="Hesham Moawad", email="heshammoawad120120@gmail.com" },
 ]
-description = "The elegant, type-safe Python API client builder."
+description = "The simple, type-safe Python API client builder."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
@@ -46,6 +46,7 @@ include = ["asas*"]
 
 [project.urls]
 Homepage = "https://github.com/HeshamMoawad/asas-py"
+Documentation = "https://heshammoawad.github.io/asas-py/"
 
 [tool.black]
 line-length = 88
