@@ -16,10 +16,11 @@ from typing import (
     get_origin,
     get_type_hints,
 )
+from urllib.parse import quote
 
 from pydantic import BaseModel, TypeAdapter
 
-from asas.core.models import Response
+from asas.core.models import Payload, Request, Response
 from asas.params import Body, Header, Location, Param, Path, Query
 
 ReturnKind = Literal["response", "none", "bytes", "str", "model"]
@@ -99,6 +100,39 @@ def _return_kind(ann: Any) -> tuple[ReturnKind, Optional[TypeAdapter[Any]], bool
     return "model", TypeAdapter(ann), optional
 
 
+def dump_body(
+    value: Any,
+    adapter: Optional[TypeAdapter[Any]] = None,
+    *,
+    exclude_unset: bool = False,
+    exclude_none: bool = False,
+) -> Any:
+    """Dump ``value`` to JSON-safe data using aliases."""
+    if adapter is None:
+        adapter = TypeAdapter(type(value))
+    return adapter.dump_python(
+        value,
+        mode="json",
+        by_alias=True,
+        exclude_unset=exclude_unset,
+        exclude_none=exclude_none,
+    )
+
+
+def _scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _wire_value(spec: "ParamSpec", value: Any) -> Any:
+    """Dump a non-body value to a string, or a list of strings."""
+    dumped = spec.adapter.dump_python(value, mode="json", by_alias=True)
+    if isinstance(dumped, (list, tuple)):
+        return [_scalar(v) for v in dumped]
+    return _scalar(dumped)
+
+
 class EndpointSpec:
     def __init__(
         self,
@@ -150,6 +184,14 @@ class EndpointSpec:
 
         specs: list[ParamSpec] = []
         for pname in list(signature.parameters)[1:]:  # skip self
+            pkind = signature.parameters[pname].kind
+            if pkind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                raise TypeError(
+                    f"{name}: variadic parameter '{pname}' is not supported"
+                )
             if pname not in hints:
                 raise TypeError(f"{name}: parameter '{pname}' lacks a type annotation")
             base, marker = _split_annotated(hints[pname])
@@ -182,6 +224,73 @@ class EndpointSpec:
             return_adapter=return_adapter,
             returns_optional=optional,
             options=options,
+        )
+
+    def build_request(
+        self, base_url: str, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> Request:
+        """Build a ``Request`` (without auth). ``args`` excludes ``self``."""
+        bound = self.signature.bind(None, *args, **kwargs)
+        bound.apply_defaults()
+        values = bound.arguments
+
+        url_path = self.path
+        query: dict[str, Any] = {}
+        headers: dict[str, str] = dict(self.options.headers or {})
+        cookies: dict[str, str] = {}
+        form: dict[str, Any] = {}
+        files: dict[str, Any] = {}
+        payload: Optional[Payload] = None
+
+        for p in self.params:
+            value = values[p.name]
+            loc = p.location
+            if loc is Location.BODY:
+                if value is not None:
+                    assert isinstance(p.marker, Body)
+                    payload = Payload(
+                        json=dump_body(
+                            value,
+                            p.adapter,
+                            exclude_unset=p.marker.exclude_unset,
+                            exclude_none=p.marker.exclude_none,
+                        )
+                    )
+                continue
+            if value is None:
+                if loc is Location.PATH:
+                    raise ValueError(f"path parameter '{p.name}' must not be None")
+                continue
+            if loc is Location.FILE:
+                files[p.wire_name] = value
+                continue
+            wire = _wire_value(p, value)
+            if loc is Location.PATH:
+                url_path = url_path.replace(
+                    "{" + p.wire_name + "}", quote(str(wire), safe="")
+                )
+            elif loc is Location.QUERY:
+                query[p.wire_name] = wire
+            elif loc is Location.HEADER:
+                headers[p.wire_name] = wire
+            elif loc is Location.COOKIE:
+                cookies[p.wire_name] = wire
+            elif loc is Location.FORM:
+                form[p.wire_name] = wire
+
+        if files:
+            payload = Payload(data=form, files=files)
+        elif form:
+            payload = Payload(data=form)
+
+        return Request(
+            method=self.method,
+            url=f"{base_url}/{url_path.lstrip('/')}",
+            params=query or None,
+            headers=headers,
+            cookies=cookies,
+            payload=payload,
+            timeout=self.options.timeout,
         )
 
     @staticmethod

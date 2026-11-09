@@ -203,3 +203,17 @@ def test_forward_reference_raises_name_error_until_defined() -> None:
         assert compile_("GET", "/x", f_forward).return_kind == "model"
     finally:
         del globals()["LaterModel"]
+
+
+def f_var_args(self: Any, *args: int) -> User:
+    raise NotImplementedError
+
+
+def f_var_kwargs(self: Any, **kwargs: int) -> User:
+    raise NotImplementedError
+
+
+@pytest.mark.parametrize("func", [f_var_args, f_var_kwargs])
+def test_var_positional_and_keyword_rejected(func: Callable[..., Any]) -> None:
+    with pytest.raises(TypeError, match=func.__qualname__):
+        compile_("GET", "/x", func)
