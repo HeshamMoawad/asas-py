@@ -17,7 +17,7 @@ from asas import (
 class AuthClient(AsasClient):
     @get("/protected")
     def get_protected(self) -> Response:
-        raise NotImplementedError
+        ...
 
 
 def test_basic_auth() -> None:

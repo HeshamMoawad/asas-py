@@ -30,7 +30,7 @@ class UsersResponse(BaseModel):
 class RequestsClient(AsasClient):
     @get("/users")
     def list_users(self) -> UsersResponse:
-        raise NotImplementedError
+        ...
 
 
 def main() -> None:

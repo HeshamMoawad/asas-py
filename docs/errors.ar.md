@@ -54,12 +54,10 @@ class User(BaseModel):
 
 class Users(AsasClient):
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     @get("/users/{id}/lenient", raise_for_status=False)
-    def get_user_lenient(self, id: int) -> dict:
-        raise NotImplementedError
+    def get_user_lenient(self, id: int) -> dict: ...
 
 
 strict = Users(base_url="https://api.example.com")
@@ -82,8 +80,7 @@ from asas import AsasClient, Response, get
 
 class Users(AsasClient):
     @get("/users/{id}")
-    def probe(self, id: int) -> Response:
-        raise NotImplementedError
+    def probe(self, id: int) -> Response: ...
 
 
 client = Users(base_url="https://api.example.com")

@@ -24,8 +24,7 @@ injected, the body is never executed, and the return annotation says what you ge
 
     ```python
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     client.get_user(1)
     ```
@@ -45,15 +44,19 @@ To post-process a result, write an ordinary method that calls the endpoint, or u
 
     ```python
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     def get_username(self, id: int) -> str:
         return self.get_user(id).name
     ```
 
-Write `raise NotImplementedError` as the body: `mypy --strict` rejects a bare `...` with
-`[empty-body]`.
+Write `...` as the body. mypy reports an `...`-only body as `[empty-body]` ("Missing return
+statement"), so mypy users should disable that check:
+
+```toml
+[tool.mypy]
+disable_error_code = ["empty-body"]
+```
 
 ## 2. `response_model=` is removed
 
@@ -69,8 +72,7 @@ Write `raise NotImplementedError` as the body: `mypy --strict` rejects a bare `.
 
     ```python
     @get("/users")
-    def get_users(self) -> list[User]:
-        raise NotImplementedError
+    def get_users(self) -> list[User]: ...
     ```
 
 A missing return annotation is a `TypeError`.
@@ -119,8 +121,7 @@ Unannotated `dict` parameters now go to the **body**, not the query string. Use
 
     ```python
     @get("/search")
-    def search(self, status: str, limit: int = 10) -> dict:
-        raise NotImplementedError   # scalars go to the query: ?status=...&limit=10
+    def search(self, status: str, limit: int = 10) -> dict: ...  # scalars go to the query: ?status=...&limit=10
     ```
 
 A `dict` value is **not** expanded into query keys: annotated as `Query()` it would be sent as

@@ -22,13 +22,13 @@ class User(BaseModel):
 class C(AsasClient):
     @get("/users/{id}")
     def get_user(self, id: int, q: Annotated[str | None, Query()] = None) -> User:
-        raise NotImplementedError
+        ...
 
 
 class AC(AsasAsyncClient):
     @get("/users/{id}")
     async def get_user(self, id: int) -> User:
-        raise NotImplementedError
+        ...
 
 
 def check(c: C) -> None:

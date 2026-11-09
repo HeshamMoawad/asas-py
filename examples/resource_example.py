@@ -66,7 +66,7 @@ class Products(AsasResource[Product]):
     # Overriding a CRUD verb with a plain endpoint keeps the same signature.
     @post("/products/add")
     def create(self, obj: Product) -> Product:
-        raise NotImplementedError
+        ...
 
     # DummyJSON rejects an ``id`` in a PUT body: exclude_unset leaves out any
     # field the caller did not set (so ``Product(title=...)`` sends no id).
@@ -74,12 +74,12 @@ class Products(AsasResource[Product]):
     def update(
         self, id: Any, obj: Annotated[Product, Body(exclude_unset=True)]
     ) -> Product:
-        raise NotImplementedError
+        ...
 
     # Custom endpoints live right next to the generated CRUD.
     @get("/products/search")
     def search(self, q: str) -> ProductPage:
-        raise NotImplementedError
+        ...
 
 
 class Users(AsasResource[User]):
@@ -88,7 +88,7 @@ class Users(AsasResource[User]):
     # Nested custom endpoint: the posts written by a given user.
     @get("/users/{id}/posts")
     def posts(self, id: int) -> PostPage:
-        raise NotImplementedError
+        ...
 
 
 class DummyJSONClient(AsasClient):

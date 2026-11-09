@@ -159,29 +159,29 @@ class User(BaseModel):
 class StatusClient(AsasClient):
     @get("/u/{id}")
     def user(self, id: int) -> User:
-        raise NotImplementedError
+        ...
 
     @get("/maybe/{id}")
     def maybe_user(self, id: int) -> Optional[User]:
-        raise NotImplementedError
+        ...
 
     @get("/raw")
     def raw(self) -> Response:
-        raise NotImplementedError
+        ...
 
     @get("/fire")
     def fire(self) -> None:
-        raise NotImplementedError
+        ...
 
     @get("/strict", raise_for_status=True)
     def strict(self) -> None:
-        raise NotImplementedError
+        ...
 
 
 class AsyncStatusClient(AsasAsyncClient):
     @get("/u/{id}")
     async def user(self, id: int) -> User:
-        raise NotImplementedError
+        ...
 
 
 def test_raises_not_found_by_default() -> None:

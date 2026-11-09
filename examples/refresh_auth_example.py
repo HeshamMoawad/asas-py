@@ -12,7 +12,7 @@ from asas import AsasAsyncClient, RefreshingBearerAuth, get
 class ProtectedAsyncClient(AsasAsyncClient):
     @get("/me")
     async def get_profile(self) -> Dict[str, Any]:
-        raise NotImplementedError
+        ...
 
 
 async def main() -> None:

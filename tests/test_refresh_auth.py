@@ -8,13 +8,13 @@ from asas import AsasAsyncClient, AsasClient, RefreshingBearerAuth, Response, ge
 class RefreshClient(AsasClient):
     @get("/protected")
     def get_protected(self) -> Response:
-        raise NotImplementedError
+        ...
 
 
 class AsyncRefreshClient(AsasAsyncClient):
     @get("/protected")
     async def get_protected(self) -> Response:
-        raise NotImplementedError
+        ...
 
 
 def test_sync_automatic_refresh() -> None:

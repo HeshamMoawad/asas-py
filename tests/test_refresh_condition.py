@@ -22,7 +22,7 @@ BASE = "https://api.example.com"
 class Client(AsasClient):
     @get("/protected")
     def call(self) -> Response:
-        raise NotImplementedError
+        ...
 
 
 def _client(**auth_kwargs: Any) -> Client:

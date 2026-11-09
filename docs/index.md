@@ -47,8 +47,7 @@ on both — Asas auto-detects `async def` methods.
 
     class MyClient(AsasClient):
         @get("/users/{id}")
-        def get_user(self, id: int) -> User:
-            raise NotImplementedError
+        def get_user(self, id: int) -> User: ...
 
     with MyClient(base_url="https://api.example.com") as client:
         user = client.get_user(1)   # typed: User
@@ -67,8 +66,7 @@ on both — Asas auto-detects `async def` methods.
 
     class MyAsyncClient(AsasAsyncClient):
         @get("/users/{id}")
-        async def get_user(self, id: int) -> User:
-            raise NotImplementedError
+        async def get_user(self, id: int) -> User: ...
 
     async def main() -> None:
         async with MyAsyncClient(base_url="https://api.example.com") as client:
@@ -76,7 +74,7 @@ on both — Asas auto-detects `async def` methods.
     ```
 
 !!! tip "The return annotation drives everything"
-    The method body is **never executed** — write `raise NotImplementedError`. Asas reads the
+    The method body is **never executed** — write `...`. Asas reads the
     **return annotation** (`-> User`) to parse and validate the response, and the **parameters**
     to build the request. Callers see exactly the signature you declared, so type checkers and
     IDEs understand `client.get_user(1)`. See [Routing](routing.md) and

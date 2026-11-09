@@ -27,31 +27,31 @@ def spec_for(func: Callable[..., Any]) -> EndpointSpec:
 
 
 def f_response(self: Any) -> Response:
-    raise NotImplementedError
+    ...
 
 
 def f_none(self: Any) -> None:
-    raise NotImplementedError
+    ...
 
 
 def f_bytes(self: Any) -> bytes:
-    raise NotImplementedError
+    ...
 
 
 def f_str(self: Any) -> str:
-    raise NotImplementedError
+    ...
 
 
 def f_user(self: Any) -> User:
-    raise NotImplementedError
+    ...
 
 
 def f_list(self: Any) -> list[User]:
-    raise NotImplementedError
+    ...
 
 
 def f_opt(self: Any) -> User | None:
-    raise NotImplementedError
+    ...
 
 
 def test_response_kind_returns_raw() -> None:
@@ -101,11 +101,11 @@ def test_schema_mismatch_wraps_pydantic_error() -> None:
 
 
 def f_opt_str(self: Any) -> str | None:
-    raise NotImplementedError
+    ...
 
 
 def f_opt_bytes(self: Any) -> bytes | None:
-    raise NotImplementedError
+    ...
 
 
 @pytest.mark.parametrize(

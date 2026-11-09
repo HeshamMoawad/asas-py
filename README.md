@@ -63,8 +63,7 @@ class Todo(BaseModel):
 
 class TodoClient(AsasClient):
     @get("/todos/{id}")
-    def get_todo(self, id: int) -> Todo:
-        raise NotImplementedError
+    def get_todo(self, id: int) -> Todo: ...
 
 
 with TodoClient(base_url="https://dummyjson.com") as client:
@@ -73,7 +72,7 @@ with TodoClient(base_url="https://dummyjson.com") as client:
 ```
 
 `id` is a path placeholder and the return annotation `Todo` validates the JSON response. The
-method body is never executed, so it is just `raise NotImplementedError`. Want async? Use
+method body is never executed, so it is just `...`. Want async? Use
 `async def` with `AsasAsyncClient` — the decorators are identical. This snippet runs as-is
 against [dummyjson.com](https://dummyjson.com) (a free public REST API).
 
@@ -99,8 +98,7 @@ class ProductPage(BaseModel):
 
 class StoreClient(AsasClient):
     @get("/products")
-    def products(self) -> ProductPage:
-        raise NotImplementedError
+    def products(self) -> ProductPage: ...
 
     def product_list(self) -> List[Product]:
         return self.products().products
@@ -162,8 +160,7 @@ class Users(AsasClient):
         id: int,
         expand: Annotated[str | None, Query(alias="x-expand")] = None,
         trace: Annotated[str | None, Header("X-Trace")] = None,
-    ) -> User:
-        raise NotImplementedError
+    ) -> User: ...
 
 
 hooks = Hooks(on_response=[lambda req, res: print(req.method, req.url, res.status_code)])
@@ -188,8 +185,7 @@ auth = RefreshingBearerAuth(
 
 class MyClient(AsasClient):
     @get("/me")
-    def me(self) -> dict:
-        raise NotImplementedError
+    def me(self) -> dict: ...
 
 
 client = MyClient(base_url="https://api.example.com", auth=auth)

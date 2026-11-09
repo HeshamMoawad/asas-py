@@ -27,15 +27,15 @@ def compile_(
 
 
 def f_model_body(self: Any, id: int, user: User, q: str | None = None) -> User:
-    raise NotImplementedError
+    ...
 
 
 def f_dict_body(self: Any, filters: dict[str, Any]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def f_optional_list_body(self: Any, users: list[User] | None = None) -> User:
-    raise NotImplementedError
+    ...
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_infers_locations(func: Any, path: Any, expected: Any) -> None:
 
 
 def f_marker(self: Any, q: Annotated[int, Header()]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def test_marker_overrides_inference() -> None:
@@ -62,7 +62,7 @@ def test_marker_overrides_inference() -> None:
 
 
 def f_trace(self: Any, x_trace: Annotated[str, Header()]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def test_header_default_alias() -> None:
@@ -70,7 +70,7 @@ def test_header_default_alias() -> None:
 
 
 def f_alias(self: Any, user_id: Annotated[int, Path(alias="userId")]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def test_path_alias_matches_placeholder() -> None:
@@ -84,7 +84,7 @@ def _with_hints(**hints: Any) -> Callable[..., Any]:
     rewriting), with every parameter defaulting to ``None``."""
 
     def f(self: Any, **kwargs: Any) -> Any:
-        raise NotImplementedError
+        ...
 
     params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
     params += [
@@ -122,39 +122,39 @@ def test_marker_found_in_outside_in_optional() -> None:
 
 
 def placeholder_without_param(self: Any) -> User:
-    raise NotImplementedError
+    ...
 
 
 def path_param_without_placeholder(self: Any, id: Annotated[int, Path()]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def two_bodies(self: Any, a: User, b: User) -> User:
-    raise NotImplementedError
+    ...
 
 
 def body_with_form(self: Any, a: User, b: Annotated[str, Form()]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def body_with_file(self: Any, a: User, b: Annotated[bytes, File()]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def duplicate_wire_name(self: Any, a: int, b: Annotated[int, Query(alias="a")]) -> User:
-    raise NotImplementedError
+    ...
 
 
 def missing_return_annotation(self: Any, a: int):  # type: ignore[no-untyped-def]
-    raise NotImplementedError
+    ...
 
 
 def unannotated_param(self: Any, a) -> User:  # type: ignore[no-untyped-def]
-    raise NotImplementedError
+    ...
 
 
 def marker_displaces_placeholder(self: Any, id: Annotated[int, Query()]) -> User:
-    raise NotImplementedError
+    ...
 
 
 CASES: dict[str, tuple[Callable[..., Any], str]] = {
@@ -179,7 +179,7 @@ def test_declaration_errors_raise_type_error(case: Any) -> None:
 
 def test_same_wire_name_in_different_locations_is_allowed() -> None:
     def f(self: Any, a: int, b: Annotated[int, Header("a")]) -> User:
-        raise NotImplementedError
+        ...
 
     assert len(compile_("GET", "/x", f).params) == 2
 
@@ -201,7 +201,7 @@ def test_same_wire_name_in_different_locations_is_allowed() -> None:
 )
 def test_return_kinds(ann: Any, kind: Any, optional: Any) -> None:
     def f(self: Any) -> Any:
-        raise NotImplementedError
+        ...
 
     f.__annotations__["return"] = ann
     spec = compile_("GET", "/x", f)
@@ -212,10 +212,10 @@ def test_return_kinds(ann: Any, kind: Any, optional: Any) -> None:
 
 def test_effective_raise_for_status() -> None:
     def r(self: Any) -> Response:
-        raise NotImplementedError
+        ...
 
     def u(self: Any) -> User:
-        raise NotImplementedError
+        ...
 
     assert (
         compile_("GET", "/x", r, raise_for_status=True).effective_raise_for_status
@@ -230,17 +230,17 @@ def test_effective_raise_for_status() -> None:
 
 def test_detects_async() -> None:
     async def a(self: Any) -> User:
-        raise NotImplementedError
+        ...
 
     def s(self: Any) -> User:
-        raise NotImplementedError
+        ...
 
     assert compile_("GET", "/x", a).is_async is True
     assert compile_("GET", "/x", s).is_async is False
 
 
 def f_forward(self: Any) -> "LaterModel":  # type: ignore[name-defined]  # noqa: F821
-    raise NotImplementedError
+    ...
 
 
 def test_forward_reference_raises_name_error_until_defined() -> None:
@@ -254,11 +254,11 @@ def test_forward_reference_raises_name_error_until_defined() -> None:
 
 
 def f_var_args(self: Any, *args: int) -> User:
-    raise NotImplementedError
+    ...
 
 
 def f_var_kwargs(self: Any, **kwargs: int) -> User:
-    raise NotImplementedError
+    ...
 
 
 @pytest.mark.parametrize("func", [f_var_args, f_var_kwargs])
@@ -278,13 +278,13 @@ def test_decorator_raises_type_error_at_class_definition() -> None:
         class Bad(AsasClient):
             @get("/x/{id}")
             def broken(self) -> Response:
-                raise NotImplementedError
+                ...
 
 
 class ForwardClient(AsasClient):
     @get("/later")
     def later(self) -> LaterResult:
-        raise NotImplementedError
+        ...
 
 
 class LaterResult(BaseModel):

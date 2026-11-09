@@ -32,17 +32,17 @@ class Item(BaseModel):
 class Client(AsasClient):
     @get("/thing")
     def thing(self) -> Response:
-        raise NotImplementedError
+        ...
 
     @get("/item")
     def item(self) -> Item:
-        raise NotImplementedError
+        ...
 
 
 class AsyncClient(AsasAsyncClient):
     @get("/thing")
     async def thing(self) -> Response:
-        raise NotImplementedError
+        ...
 
 
 def test_on_request_sees_auth_and_can_replace_request() -> None:
@@ -66,7 +66,7 @@ def test_client_hooks_run_before_endpoint_hooks() -> None:
             hooks=Hooks(on_request=[lambda r: order.append("endpoint")]),
         )
         def thing(self) -> Response:
-            raise NotImplementedError
+            ...
 
     client = Ordered(
         BASE,

@@ -47,8 +47,7 @@ pip install asas-py
 
     class MyClient(AsasClient):
         @get("/users/{id}")
-        def get_user(self, id: int) -> User:
-            raise NotImplementedError
+        def get_user(self, id: int) -> User: ...
 
     with MyClient(base_url="https://api.example.com") as client:
         user = client.get_user(1)   # typed: User
@@ -67,8 +66,7 @@ pip install asas-py
 
     class MyAsyncClient(AsasAsyncClient):
         @get("/users/{id}")
-        async def get_user(self, id: int) -> User:
-            raise NotImplementedError
+        async def get_user(self, id: int) -> User: ...
 
     async def main() -> None:
         async with MyAsyncClient(base_url="https://api.example.com") as client:
@@ -76,7 +74,7 @@ pip install asas-py
     ```
 
 !!! tip "تعليق نوع القيمة المُعادة يقود كل شيء"
-    جسم الدالة **لا يُنفَّذ أبدًا** — اكتب `raise NotImplementedError`. يقرأ أساس **تعليق نوع
+    جسم الدالة **لا يُنفَّذ أبدًا** — اكتب `...`. يقرأ أساس **تعليق نوع
     القيمة المُعادة** (`-> User`) ليحلّل الاستجابة ويتحقّق منها، و**الوسائط** ليبني الطلب.
     ويرى المستدعون التوقيع الذي صرّحت به تمامًا، فتفهم أدوات فحص الأنواع ومحرّرات الكود
     `client.get_user(1)`. راجع [التوجيه](routing.md) و[الوسائط](parameters.md).

@@ -44,7 +44,7 @@ class Users(AsasResource[User]):
 
     @get("/users/{id}/roles")
     def roles(self, id: int) -> list[Role]:
-        raise NotImplementedError
+        ...
 
 
 class StoreClient(AsasClient):

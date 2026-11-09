@@ -23,7 +23,7 @@ from asas import (
 class ProtectedClient(AsasClient):
     @get("/protected")
     def get_data(self) -> Dict[str, Any]:
-        raise NotImplementedError  # the return annotation drives parsing
+        ...  # the return annotation drives parsing
 
 
 def main() -> None:

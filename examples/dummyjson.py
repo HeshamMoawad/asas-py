@@ -29,12 +29,10 @@ class DummyJSONClient(AsasClient):
     @get("/products")
     def get_products(self) -> ProductList:
         """The return annotation is the parsed type."""
-        raise NotImplementedError
 
     @get("/products/search")
     def search_products(self, q: str) -> ProductList:
         """``q`` is not in the path, so it becomes a query parameter."""
-        raise NotImplementedError
 
 
 class AsyncDummyJSONClient(AsasAsyncClient):
@@ -46,7 +44,6 @@ class AsyncDummyJSONClient(AsasAsyncClient):
     @get("/products/{id}")
     async def get_product_async(self, id: int) -> Product:
         """``id`` fills the ``{id}`` placeholder in the path."""
-        raise NotImplementedError
 
 
 async def main() -> None:

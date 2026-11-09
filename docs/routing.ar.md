@@ -35,8 +35,7 @@ def get(
 ## تعريف نقطة نهاية
 
 **تعليق نوع القيمة المُعادة** يخبر أساس كيف يحلّل الاستجابة، و**الوسائط** تخبره كيف يبني
-الطلب. جسم الدالة لا يُنفَّذ أبدًا، لذا فالاصطلاح أن تكتب `raise NotImplementedError` (أما
-`...` المجرّدة فيرفضها `mypy --strict` بالخطأ `[empty-body]`):
+الطلب. جسم الدالة لا يُنفَّذ أبدًا، لذا فالاصطلاح أن تكتب `...` جسمًا للدالة:
 
 ```python
 from pydantic import BaseModel
@@ -51,13 +50,21 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")
 user = client.get_user(1)       # GET /users/1  ->  User
 ```
+
+!!! note "تستخدم mypy؟"
+    يبلّغ mypy عن الجسم المكوّن من `...` فقط بالخطأ `[empty-body]` ("Missing return statement").
+    أساس لا يُنفّذ الجسم أبدًا، لذا عطّل هذا الفحص:
+
+    ```toml
+    [tool.mypy]
+    disable_error_code = ["empty-body"]
+    ```
 
 المزخرفات مكتوبة الأنواع بحيث يرى المستدعون التوقيع الذي كتبته كما هو:
 `client.get_user(1)` هو `User` بالنسبة إلى mypy ومحرّر الكود. لا يُحقَن أي وسيط، ولا يُمرَّر
@@ -69,8 +76,7 @@ user = client.get_user(1)       # GET /users/1  ->  User
 ```python
 class MyClient(AsasClient):
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     def get_username(self, id: int) -> str:
         return self.get_user(id).name
@@ -121,8 +127,7 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @post("/teams/{id}/users")
-    def create_user(self, id: int, payload: CreateUser, team: str) -> User:
-        raise NotImplementedError
+    def create_user(self, id: int, payload: CreateUser, team: str) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")
@@ -145,8 +150,7 @@ client.create_user(
 ```python
 class SearchClient(AsasClient):
     @get("/search")
-    def search(self, q: str, page: int | None = None) -> dict:
-        raise NotImplementedError
+    def search(self, q: str, page: int | None = None) -> dict: ...
 
 
 client = SearchClient(base_url="https://api.example.com")
@@ -184,8 +188,7 @@ class User(BaseModel):
 
 class AsyncClient(AsasAsyncClient):
     @get("/users/{id}")
-    async def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    async def get_user(self, id: int) -> User: ...
 ```
 
 !!! note
@@ -203,8 +206,7 @@ from asas import AsasClient, get
 
 class MyClient(AsasClient):
     @get("/public-data", use_auth=False)
-    def get_public(self) -> dict:
-        raise NotImplementedError
+    def get_public(self) -> dict: ...
 ```
 
 هذا أيضًا ما تستخدمه لنقطة نهاية تسجيل الدخول التي *تنتج* رمزك — راجع مثال المصادقة أثناء

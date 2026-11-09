@@ -89,8 +89,7 @@ class Users(AsasResource[User]):
     path = "/users"
 
     @get("/users/{id}/roles")
-    def roles(self, id: int) -> list[Role]:
-        raise NotImplementedError
+    def roles(self, id: int) -> list[Role]: ...
 
 client.users.roles(1)        # GET /users/1/roles
 ```

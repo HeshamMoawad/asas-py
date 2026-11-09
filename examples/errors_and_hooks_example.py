@@ -32,21 +32,18 @@ class ItemsClient(AsasClient):
     @get("/items/{id}")
     def get_item(self, id: int) -> Item:
         """Non-2xx raises a typed error (404 -> NotFoundError, 429 -> RateLimitError)."""
-        raise NotImplementedError
 
     @get("/items/{id}", raise_for_status=False)
     def get_item_unchecked(self, id: int) -> Dict[str, Any]:
         """Per-endpoint opt-out: no status check, the error body is just parsed."""
-        raise NotImplementedError
 
     @get("/items/{id}")
     def get_item_raw(self, id: int) -> Response:
         """``-> Response`` returns the raw response and never raises on status."""
-        raise NotImplementedError
 
     @get("/items")
     def list_items(self) -> List[Item]:
-        raise NotImplementedError
+        ...
 
 
 def main() -> None:

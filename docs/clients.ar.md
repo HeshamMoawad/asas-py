@@ -29,8 +29,7 @@
 
     class GitHubClient(AsasClient):
         @get("/users/{username}")
-        def get_user(self, username: str) -> GitHubUser:
-            raise NotImplementedError
+        def get_user(self, username: str) -> GitHubUser: ...
 
 
     with GitHubClient(base_url="https://api.github.com") as client:
@@ -52,8 +51,7 @@
 
     class GitHubClient(AsasAsyncClient):
         @get("/users/{username}")
-        async def get_user(self, username: str) -> GitHubUser:
-            raise NotImplementedError
+        async def get_user(self, username: str) -> GitHubUser: ...
 
 
     async def main() -> None:
@@ -124,8 +122,7 @@ class Token(BaseModel):
 
 class ApiClient(AsasClient):
     @post("/auth/login", use_auth=False)
-    def login(self, credentials: Credentials) -> Token:
-        raise NotImplementedError
+    def login(self, credentials: Credentials) -> Token: ...
 
 client = ApiClient(base_url="https://api.example.com")
 

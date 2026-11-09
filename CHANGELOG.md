@@ -14,7 +14,7 @@ A breaking release. See the [migration guide](docs/migration-0.2.md).
 ### Breaking
 
 - Endpoint bodies no longer receive the parsed result; the **return annotation** drives
-  parsing and the method body is never executed (write `raise NotImplementedError`).
+  parsing and the method body is never executed (write `...`).
 - `response_model=` is removed; use the return annotation.
 - Non-2xx responses raise a typed `HTTPStatusError` subclass by default
   (`raise_for_status` on the client or endpoint; `-> Response` endpoints never raise).

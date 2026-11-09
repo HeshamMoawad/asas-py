@@ -22,25 +22,25 @@ class User(BaseModel):
 class PydanticClient(AsasClient):
     @get("/items/{item_id}")
     def get_item(self, item_id: int) -> Item:
-        raise NotImplementedError
+        ...
 
     @get("/items")
     def list_items(self) -> List[Item]:
-        raise NotImplementedError
+        ...
 
     @get("/search")
     def search_items(self, q: str, limit: int = 10) -> List[Item]:
-        raise NotImplementedError
+        ...
 
     @post("/items")
     def create_item(self, data: Item) -> Item:
-        raise NotImplementedError
+        ...
 
 
 class AsyncPydanticClient(AsasAsyncClient):
     @get("/users/{user_id}")
     async def get_user_async(self, user_id: int) -> User:
-        raise NotImplementedError
+        ...
 
 
 def test_pydantic_sync_parse() -> None:

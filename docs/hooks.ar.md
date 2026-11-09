@@ -49,8 +49,7 @@ def log_error(error: AsasError) -> None:
 
 class Api(AsasClient):
     @get("/ping", hooks=Hooks(on_response=[lambda req, res: log.debug("ping")]))
-    def ping(self) -> dict:
-        raise NotImplementedError
+    def ping(self) -> dict: ...
 
 
 client = Api(

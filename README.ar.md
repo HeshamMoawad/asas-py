@@ -63,8 +63,7 @@ class Todo(BaseModel):
 
 class TodoClient(AsasClient):
     @get("/todos/{id}")
-    def get_todo(self, id: int) -> Todo:
-        raise NotImplementedError
+    def get_todo(self, id: int) -> Todo: ...
 
 
 with TodoClient(base_url="https://dummyjson.com") as client:
@@ -73,7 +72,7 @@ with TodoClient(base_url="https://dummyjson.com") as client:
 ```
 
 `id` هو موضع في المسار، وتعليق نوع القيمة المُعادة `Todo` يتحقق من استجابة JSON. جسم الدالة لا
-يُنفَّذ أبدًا، لذا فهو مجرد `raise NotImplementedError`. تريد غير المتزامن؟ استخدم `async def`
+يُنفَّذ أبدًا، لذا فهو مجرد `...`. تريد غير المتزامن؟ استخدم `async def`
 مع `AsasAsyncClient` — المزخرفات متطابقة. يعمل هذا المقطع كما هو ضد
 [dummyjson.com](https://dummyjson.com) (واجهة REST عامة مجانية).
 
@@ -99,8 +98,7 @@ class ProductPage(BaseModel):
 
 class StoreClient(AsasClient):
     @get("/products")
-    def products(self) -> ProductPage:
-        raise NotImplementedError
+    def products(self) -> ProductPage: ...
 
     def product_list(self) -> List[Product]:
         return self.products().products
@@ -162,8 +160,7 @@ class Users(AsasClient):
         id: int,
         expand: Annotated[str | None, Query(alias="x-expand")] = None,
         trace: Annotated[str | None, Header("X-Trace")] = None,
-    ) -> User:
-        raise NotImplementedError
+    ) -> User: ...
 
 
 hooks = Hooks(on_response=[lambda req, res: print(req.method, req.url, res.status_code)])
@@ -188,8 +185,7 @@ auth = RefreshingBearerAuth(
 
 class MyClient(AsasClient):
     @get("/me")
-    def me(self) -> dict:
-        raise NotImplementedError
+    def me(self) -> dict: ...
 
 
 client = MyClient(base_url="https://api.example.com", auth=auth)

@@ -28,8 +28,7 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @post("/users")
-    def create_user(self, payload: CreateUser) -> User:
-        raise NotImplementedError
+    def create_user(self, payload: CreateUser) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")
@@ -42,12 +41,10 @@ A list of models becomes a JSON array, and a `dict` is sent as a JSON object:
 ```python
 class BulkClient(AsasClient):
     @post("/users/bulk")
-    def create_users(self, payload: list[CreateUser]) -> list[User]:
-        raise NotImplementedError
+    def create_users(self, payload: list[CreateUser]) -> list[User]: ...
 
     @post("/events")
-    def send_event(self, payload: dict[str, str]) -> None:
-        raise NotImplementedError
+    def send_event(self, payload: dict[str, str]) -> None: ...
 ```
 
 The body is dumped in JSON mode and by alias, so `datetime`, `UUID`, `Decimal`, enums and
@@ -71,8 +68,7 @@ class PatchClient(AsasClient):
     @patch("/users/{id}")
     def update_user(
         self, id: int, changes: Annotated[UserPatch, Body(exclude_unset=True)]
-    ) -> None:
-        raise NotImplementedError
+    ) -> None: ...
 ```
 
 For forms, files, headers and cookies see [Parameters](parameters.md).
@@ -109,8 +105,7 @@ model, `list[Model]`, `dict[str, Model]`, unions, and so on.
 
     class MyClient(AsasClient):
         @get("/users/{id}")
-        def get_user(self, id: int) -> User:
-            raise NotImplementedError
+        def get_user(self, id: int) -> User: ...
 
 
     client = MyClient(base_url="https://api.example.com")
@@ -132,8 +127,7 @@ model, `list[Model]`, `dict[str, Model]`, unions, and so on.
 
     class MyClient(AsasClient):
         @get("/users")
-        def get_users(self) -> list[User]:
-            raise NotImplementedError
+        def get_users(self) -> list[User]: ...
     ```
 
 === "Raw response"
@@ -144,8 +138,7 @@ model, `list[Model]`, `dict[str, Model]`, unions, and so on.
 
     class MyClient(AsasClient):
         @get("/health")
-        def health(self) -> Response:
-            raise NotImplementedError
+        def health(self) -> Response: ...
 
 
     client = MyClient(base_url="https://api.example.com")
@@ -172,8 +165,7 @@ class Profile(BaseModel):
 
 class MyClient(AsasClient):
     @get("/users/{id}/profile")
-    def profile(self, id: int) -> Profile | None:
-        raise NotImplementedError   # e.g. a 204 with no body returns None
+    def profile(self, id: int) -> Profile | None: ...  # e.g. a 204 with no body returns None
 ```
 
 For any other model type an empty body raises [`ResponseValidationError`](errors.md). A body
@@ -202,8 +194,7 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @post("/users")
-    def create_user(self, payload: CreateUser) -> User:
-        raise NotImplementedError
+    def create_user(self, payload: CreateUser) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")

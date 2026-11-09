@@ -132,7 +132,7 @@ async def test_async_client_with_requests_engine_raises_sync_only_error() -> Non
     class AsyncRequestsClient(AsasAsyncClient):
         @get("/protected")
         async def get_protected(self) -> Response:
-            raise NotImplementedError
+            ...
 
     client = AsyncRequestsClient(
         base_url="https://api.example.com",

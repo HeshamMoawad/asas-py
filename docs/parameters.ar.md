@@ -24,8 +24,7 @@ class Users(AsasClient):
         id: int,
         expand: Annotated[str | None, Query(alias="x-expand")] = None,
         trace: Annotated[str | None, Header("X-Trace")] = None,
-    ) -> User:
-        raise NotImplementedError
+    ) -> User: ...
 ```
 
 ## العلامات
@@ -57,8 +56,7 @@ class Api(AsasClient):
         sort_by: Annotated[str, Query(alias="sort-by")] = "name",
         session: Annotated[str | None, Cookie()] = None,
         request_id: Annotated[str | None, Header()] = None,   # sent as Request-Id
-    ) -> list[dict]:
-        raise NotImplementedError
+    ) -> list[dict]: ...
 ```
 
 !!! note "موضع العلامة"
@@ -94,8 +92,7 @@ from asas import AsasClient, get
 
 class Api(AsasClient):
     @get("/orders/{order_id}")
-    def get_order(self, order_id: UUID, since: datetime | None = None) -> dict:
-        raise NotImplementedError
+    def get_order(self, order_id: UUID, since: datetime | None = None) -> dict: ...
 ```
 
 - يلتزم `Body` أيضًا بـ `exclude_unset` و`exclude_none` من علامته.
@@ -140,8 +137,7 @@ class Documents(AsasClient):
         file: Annotated[tuple[str, bytes, str], File()],
         title: Annotated[str, Form()],
         idempotency_key: Annotated[str, Header("Idempotency-Key")],
-    ) -> Document:
-        raise NotImplementedError
+    ) -> Document: ...
 
 
 client = Documents(base_url="https://api.example.com")
@@ -184,8 +180,7 @@ from asas import AsasClient, get
 
 class Files(AsasClient):
     @get("/files/{name}")
-    def stat(self, name: Annotated[str, asas.Path()]) -> dict:
-        raise NotImplementedError
+    def stat(self, name: Annotated[str, asas.Path()]) -> dict: ...
 
 
 def save(target: Path) -> None:

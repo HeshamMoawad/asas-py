@@ -69,29 +69,25 @@ class SyncStoreClient(AsasClient):
         x_request_id: Annotated[Optional[str], Header()] = None,
     ) -> List[Product]:
         """``search`` goes out as ``?q=...``; ``x_request_id`` as ``X-Request-Id``."""
-        raise NotImplementedError
 
     @get("/products/{id}")
     def get_product(self, id: int) -> Product:
         """``id`` matches the ``{id}`` placeholder, so it is a path parameter."""
-        raise NotImplementedError
 
     @get("/user/orders")
     def get_my_orders(self) -> Dict[str, Any]:
         """A protected endpoint that uses the client's auth."""
-        raise NotImplementedError
 
     @post("/auth/login", use_auth=False)
     def login(self, credentials: Credentials) -> AuthResponse:
         """``credentials`` is a Pydantic model, so it is sent as the JSON body."""
-        raise NotImplementedError
 
 
 # --- 3. Asynchronous client with automatic refresh ---
 class AsyncStoreClient(AsasAsyncClient):
     @get("/products/{id}")
     async def get_product(self, id: int) -> Product:
-        raise NotImplementedError
+        ...
 
 
 def mock_store(server: respx.MockRouter) -> None:

@@ -27,8 +27,7 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @post("/users")
-    def create_user(self, payload: CreateUser) -> User:
-        raise NotImplementedError
+    def create_user(self, payload: CreateUser) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")
@@ -41,12 +40,10 @@ client.create_user(CreateUser(name="Ada", email="ada@example.com"))
 ```python
 class BulkClient(AsasClient):
     @post("/users/bulk")
-    def create_users(self, payload: list[CreateUser]) -> list[User]:
-        raise NotImplementedError
+    def create_users(self, payload: list[CreateUser]) -> list[User]: ...
 
     @post("/events")
-    def send_event(self, payload: dict[str, str]) -> None:
-        raise NotImplementedError
+    def send_event(self, payload: dict[str, str]) -> None: ...
 ```
 
 يُفرَّغ الجسم بوضع JSON وبحسب الاسم المستعار، فتُسلسَل `datetime` و`UUID` و`Decimal`
@@ -70,8 +67,7 @@ class PatchClient(AsasClient):
     @patch("/users/{id}")
     def update_user(
         self, id: int, changes: Annotated[UserPatch, Body(exclude_unset=True)]
-    ) -> None:
-        raise NotImplementedError
+    ) -> None: ...
 ```
 
 وللنماذج والملفات والترويسات والكوكيز راجع [الوسائط](parameters.md).
@@ -108,8 +104,7 @@ class PatchClient(AsasClient):
 
     class MyClient(AsasClient):
         @get("/users/{id}")
-        def get_user(self, id: int) -> User:
-            raise NotImplementedError
+        def get_user(self, id: int) -> User: ...
 
 
     client = MyClient(base_url="https://api.example.com")
@@ -131,8 +126,7 @@ class PatchClient(AsasClient):
 
     class MyClient(AsasClient):
         @get("/users")
-        def get_users(self) -> list[User]:
-            raise NotImplementedError
+        def get_users(self) -> list[User]: ...
     ```
 
 === "استجابة خام"
@@ -143,8 +137,7 @@ class PatchClient(AsasClient):
 
     class MyClient(AsasClient):
         @get("/health")
-        def health(self) -> Response:
-            raise NotImplementedError
+        def health(self) -> Response: ...
 
 
     client = MyClient(base_url="https://api.example.com")
@@ -171,8 +164,7 @@ class Profile(BaseModel):
 
 class MyClient(AsasClient):
     @get("/users/{id}/profile")
-    def profile(self, id: int) -> Profile | None:
-        raise NotImplementedError   # e.g. a 204 with no body returns None
+    def profile(self, id: int) -> Profile | None: ...  # e.g. a 204 with no body returns None
 ```
 
 أما لأي نوع نموذج آخر فالجسم الفارغ يرفع [`ResponseValidationError`](errors.md). وكذلك الجسم
@@ -201,8 +193,7 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @post("/users")
-    def create_user(self, payload: CreateUser) -> User:
-        raise NotImplementedError
+    def create_user(self, payload: CreateUser) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")

@@ -23,8 +23,7 @@
 
     ```python
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     client.get_user(1)
     ```
@@ -44,15 +43,19 @@
 
     ```python
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     def get_username(self, id: int) -> str:
         return self.get_user(id).name
     ```
 
-اكتب `raise NotImplementedError` جسمًا للدالة: فـ `mypy --strict` يرفض `...` المجرّدة بالخطأ
-`[empty-body]`.
+اكتب `...` جسمًا للدالة. يبلّغ mypy عن الجسم المكوّن من `...` فقط بالخطأ `[empty-body]`
+("Missing return statement")، لذا على مستخدمي mypy تعطيل هذا الفحص:
+
+```toml
+[tool.mypy]
+disable_error_code = ["empty-body"]
+```
 
 ## 2. حُذف `response_model=`
 
@@ -68,8 +71,7 @@
 
     ```python
     @get("/users")
-    def get_users(self) -> list[User]:
-        raise NotImplementedError
+    def get_users(self) -> list[User]: ...
     ```
 
 غياب تعليق نوع القيمة المُعادة يرفع `TypeError`.
@@ -118,8 +120,7 @@
 
     ```python
     @get("/search")
-    def search(self, status: str, limit: int = 10) -> dict:
-        raise NotImplementedError   # scalars go to the query: ?status=...&limit=10
+    def search(self, status: str, limit: int = 10) -> dict: ...  # scalars go to the query: ?status=...&limit=10
     ```
 
 قيمة `dict` **لا** تُفكَّك إلى مفاتيح استعلام: لو عُلِّقت بـ `Query()` لأُرسلت قيمة واحدة نصّية.

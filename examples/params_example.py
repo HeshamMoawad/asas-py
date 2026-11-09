@@ -42,12 +42,10 @@ class FilesClient(AsasClient):
 
         ``api_version`` is sent as the ``Api-Version`` header.
         """
-        raise NotImplementedError
 
     @get("/me")
     def whoami(self, session: Annotated[str, Cookie()]) -> Dict[str, Any]:
         """``session`` is sent as a cookie."""
-        raise NotImplementedError
 
     @patch("/users/{user_id}")
     def update_user(
@@ -56,7 +54,6 @@ class FilesClient(AsasClient):
         changes: Annotated[UserPatch, Body(exclude_unset=True)],
     ) -> User:
         """Only the fields set on ``changes`` are sent (a true partial update)."""
-        raise NotImplementedError
 
 
 def main() -> None:

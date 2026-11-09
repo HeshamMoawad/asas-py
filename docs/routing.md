@@ -37,7 +37,7 @@ argument from 0.1 no longer exists — the return annotation replaces it.
 
 The **return annotation** tells Asas how to parse the response, and the **parameters** tell it
 how to build the request. The method body is never executed, so the convention is to write
-`raise NotImplementedError` (a bare `...` is rejected by `mypy --strict` as `[empty-body]`):
+`...` as the body:
 
 ```python
 from pydantic import BaseModel
@@ -52,13 +52,21 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")
 user = client.get_user(1)       # GET /users/1  ->  User
 ```
+
+!!! note "Using mypy?"
+    mypy reports a body that is only `...` as `[empty-body]` ("Missing return statement").
+    Asas never runs the body, so turn that check off:
+
+    ```toml
+    [tool.mypy]
+    disable_error_code = ["empty-body"]
+    ```
 
 The decorators are typed so callers see the signature you wrote unchanged:
 `client.get_user(1)` is a `User` to mypy and to your IDE. No argument is injected, and nothing
@@ -70,8 +78,7 @@ a [hook](hooks.md):
 ```python
 class MyClient(AsasClient):
     @get("/users/{id}")
-    def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    def get_user(self, id: int) -> User: ...
 
     def get_username(self, id: int) -> str:
         return self.get_user(id).name
@@ -122,8 +129,7 @@ class User(BaseModel):
 
 class MyClient(AsasClient):
     @post("/teams/{id}/users")
-    def create_user(self, id: int, payload: CreateUser, team: str) -> User:
-        raise NotImplementedError
+    def create_user(self, id: int, payload: CreateUser, team: str) -> User: ...
 
 
 client = MyClient(base_url="https://api.example.com")
@@ -146,8 +152,7 @@ makes optional parameters easy:
 ```python
 class SearchClient(AsasClient):
     @get("/search")
-    def search(self, q: str, page: int | None = None) -> dict:
-        raise NotImplementedError
+    def search(self, q: str, page: int | None = None) -> dict: ...
 
 
 client = SearchClient(base_url="https://api.example.com")
@@ -186,8 +191,7 @@ class User(BaseModel):
 
 class AsyncClient(AsasAsyncClient):
     @get("/users/{id}")
-    async def get_user(self, id: int) -> User:
-        raise NotImplementedError
+    async def get_user(self, id: int) -> User: ...
 ```
 
 !!! note
@@ -205,8 +209,7 @@ from asas import AsasClient, get
 
 class MyClient(AsasClient):
     @get("/public-data", use_auth=False)
-    def get_public(self) -> dict:
-        raise NotImplementedError
+    def get_public(self) -> dict: ...
 ```
 
 This is also what you use for the login endpoint that *produces* your token — see the

@@ -7,11 +7,11 @@ from asas import AsasClient, BearerAuth, Response, get
 class PublicClient(AsasClient):
     @get("/public", use_auth=False)
     def get_public(self) -> Response:
-        raise NotImplementedError
+        ...
 
     @get("/private")
     def get_private(self) -> Response:
-        raise NotImplementedError
+        ...
 
 
 def test_disable_auth_on_endpoint() -> None:
