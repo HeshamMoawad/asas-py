@@ -176,3 +176,22 @@ def test_hook_exception_propagates() -> None:
             client.thing()
         assert not route.called
     assert errors == []
+
+
+def test_hook_added_during_a_pass_runs_from_the_next_request() -> None:
+    ran: List[str] = []
+
+    def late(request: Request) -> None:
+        ran.append("late")
+
+    def adder(request: Request) -> None:
+        ran.append("adder")
+        client.hooks.on_request.append(late)
+
+    client = Client(BASE, hooks=Hooks(on_request=[adder]))
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/thing").mock(return_value=HttpxResponse(200))
+        client.thing()
+        assert ran == ["adder"]
+        client.thing()
+    assert ran == ["adder", "adder", "late"]

@@ -18,6 +18,8 @@ class Hooks:
     Hooks work with sync and async clients alike, so they must not block on I/O.
     ``on_request`` may mutate the request and return ``None``, or return a
     replacement. ``on_error`` only observes: the error is raised afterwards.
+    Each pass runs a snapshot of the list, so a hook added during a pass runs
+    from the next request on.
     """
 
     on_request: List[RequestHook] = field(default_factory=list)
@@ -35,16 +37,16 @@ class Hooks:
         )
 
     def apply_request(self, request: Request) -> Request:
-        for hook in self.on_request:
+        for hook in list(self.on_request):
             replacement = hook(request)
             if replacement is not None:
                 request = replacement
         return request
 
     def notify_response(self, request: Request, response: Response) -> None:
-        for hook in self.on_response:
+        for hook in list(self.on_response):
             hook(request, response)
 
     def notify_error(self, error: AsasError) -> None:
-        for hook in self.on_error:
+        for hook in list(self.on_error):
             hook(error)
