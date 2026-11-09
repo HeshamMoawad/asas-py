@@ -85,8 +85,9 @@ class MyClient(AsasClient):
 | `None` | `None`; the body is discarded |
 | `bytes` | `response.content` |
 | `str` | `response.text` |
-| `bytes \| None`, `str \| None` | as above, or `None` for an empty body |
 | any other type `T` | the body validated as `T` with a Pydantic `TypeAdapter` |
+
+With `-> bytes | None` or `-> str | None`, an empty body returns `None`.
 
 See [Request Bodies & Responses](request-response.md) for details, including empty bodies.
 A missing return annotation raises `TypeError` — use `-> Response` when you want the raw

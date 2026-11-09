@@ -87,8 +87,9 @@ The return annotation decides what you get back:
 | `None` | `None`; the body is discarded |
 | `bytes` | `response.content` |
 | `str` | `response.text` |
-| `bytes \| None`, `str \| None` | as above, or `None` for an empty body |
 | any other type `T` | `TypeAdapter(T).validate_json(response.content)` |
+
+With `-> bytes | None` or `-> str | None`, an empty body returns `None`.
 
 Because the model path uses a Pydantic `TypeAdapter`, any typing construct works: a single
 model, `list[Model]`, `dict[str, Model]`, unions, and so on.

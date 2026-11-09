@@ -86,8 +86,9 @@ class PatchClient(AsasClient):
 | `None` | `None`؛ ويُهمَل الجسم |
 | `bytes` | `response.content` |
 | `str` | `response.text` |
-| `bytes \| None`، `str \| None` | كما سبق، أو `None` إذا كان الجسم فارغًا |
 | أي نوع آخر `T` | `TypeAdapter(T).validate_json(response.content)` |
+
+ومع `-> bytes | None` أو `-> str | None` يعيد الجسم الفارغ القيمة `None`.
 
 ولأن مسار النماذج يستخدم `TypeAdapter` من Pydantic، فأي تركيب من الأنواع يعمل: نموذج مفرد،
 و`list[Model]`، و`dict[str, Model]`، والاتحادات، وهكذا.

@@ -84,8 +84,9 @@ class MyClient(AsasClient):
 | `None` | `None`؛ ويُهمَل الجسم |
 | `bytes` | `response.content` |
 | `str` | `response.text` |
-| `bytes \| None`، `str \| None` | كما سبق، أو `None` إذا كان الجسم فارغًا |
 | أي نوع آخر `T` | الجسم متحقَّقًا منه بوصفه `T` عبر `TypeAdapter` من Pydantic |
+
+ومع `-> bytes | None` أو `-> str | None` يعيد الجسم الفارغ القيمة `None`.
 
 راجع [أجسام الطلب والاستجابات](request-response.md) للتفاصيل، بما فيها الأجسام الفارغة.
 غياب تعليق نوع القيمة المُعادة يرفع `TypeError` — استخدم `-> Response` عندما تريد الاستجابة
