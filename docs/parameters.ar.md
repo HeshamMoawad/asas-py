@@ -61,10 +61,11 @@ class Api(AsasClient):
         raise NotImplementedError
 ```
 
-!!! warning "اكتب العلامة على النوع كاملًا"
-    تُقرأ العلامات من `Annotated[T, Marker()]` في **المستوى الأعلى** فقط. اكتب
-    `Annotated[str | None, Query()]`، لا `Annotated[str, Query()] | None` — ففي الصيغة الثانية
-    لا تُرى العلامة ويُستنتج الوسيط كأنه بلا علامة.
+!!! note "موضع العلامة"
+    يقرأ أساس العلامة من `Annotated[T, Marker()]`، أو من اتحاد يجمع `None` وعضوًا واحدًا من
+    `Annotated[...]`. لذا تعمل الصيغتان `Annotated[str | None, Query()]` و`Annotated[str, Query()] | None`،
+    ونوع الوسيط في الحالتين `str | None`. ويغلّف Python 3.10 الوسائط التي قيمتها الافتراضية `None`
+    في `Optional[...]`، وأساس يتعامل مع ذلك أيضًا.
 
 ## الاستنتاج دون علامة
 

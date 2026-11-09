@@ -61,10 +61,11 @@ class Api(AsasClient):
         raise NotImplementedError
 ```
 
-!!! warning "Write the marker on the whole type"
-    Markers are read from the **top-level** `Annotated[T, Marker()]` only. Write
-    `Annotated[str | None, Query()]`, not `Annotated[str, Query()] | None` — in the second form
-    the marker is not seen and the parameter is inferred as if it had none.
+!!! note "Where the marker goes"
+    Asas reads the marker from `Annotated[T, Marker()]`, or from a union of `None` and a single
+    `Annotated[...]`. So `Annotated[str | None, Query()]` and `Annotated[str, Query()] | None`
+    both work, and in both cases the parameter type is `str | None`. Python 3.10 wraps
+    parameters that default to `None` in `Optional[...]`, and Asas handles that too.
 
 ## Inference without a marker
 
