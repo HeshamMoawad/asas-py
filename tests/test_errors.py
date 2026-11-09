@@ -100,6 +100,24 @@ def test_retry_after_missing_or_garbage() -> None:
     assert parse_retry_after("soon") is None
 
 
+@pytest.mark.parametrize("value,expected", [("-5", 0.0), ("inf", None), ("nan", None)])
+def test_retry_after_negative_clamped_and_non_finite_rejected(
+    value: str, expected: Optional[float]
+) -> None:
+    assert parse_retry_after(value) == expected
+
+
+def test_retry_after_lowercase_header_key() -> None:
+    # httpx's dict(response.headers) lowercases keys: the production path.
+    err = error_for_response(req, resp(429, headers={"retry-after": "3"}))
+    assert isinstance(err, RateLimitError) and err.retry_after == 3.0
+
+
+def test_rate_limit_without_retry_after_header() -> None:
+    err = error_for_response(req, resp(429))
+    assert isinstance(err, RateLimitError) and err.retry_after is None
+
+
 def test_hierarchy_and_exports() -> None:
     assert issubclass(NotFoundError, ClientError)
     assert issubclass(ClientError, HTTPStatusError)

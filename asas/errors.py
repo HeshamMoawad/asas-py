@@ -1,4 +1,5 @@
 import http
+import math
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
@@ -121,13 +122,19 @@ def error_for_response(request: Request, response: Response) -> HTTPStatusError:
 
 
 def parse_retry_after(value: str | None, now: datetime | None = None) -> float | None:
-    """Parse a ``Retry-After`` header (delta-seconds or HTTP-date) to seconds."""
+    """Parse a ``Retry-After`` header (delta-seconds or HTTP-date) to seconds.
+
+    Returns a finite, non-negative number of seconds, or ``None`` if the value
+    cannot be used.
+    """
     if not value:
         return None
     try:
-        return float(value)
+        seconds = float(value)
     except ValueError:
         pass
+    else:
+        return max(0.0, seconds) if math.isfinite(seconds) else None
     try:
         when = parsedate_to_datetime(value)
     except (TypeError, ValueError):
