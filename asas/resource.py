@@ -35,6 +35,7 @@ from typing import (
     get_args,
     get_origin,
 )
+from urllib.parse import quote
 
 from pydantic import BaseModel
 
@@ -153,6 +154,10 @@ class BaseResource:
 
     # -- helpers ------------------------------------------------------------
 
+    def _item_path(self, id: Any) -> str:
+        """The record path for ``id``, percent-encoded as one path segment."""
+        return f"{self.path.rstrip('/')}/{quote(str(id), safe='')}"
+
     def _require_path(self) -> None:
         if not self.path:
             raise ValueError(
@@ -239,7 +244,7 @@ class AsasResource(BaseResource, Generic[ModelT]):
         return cast(
             ModelT,
             execute_sync(
-                self, lambda: self._build("GET", f"{self.path}/{id}"), self._parse_one
+                self, lambda: self._build("GET", self._item_path(id)), self._parse_one
             ),
         )
 
@@ -260,7 +265,7 @@ class AsasResource(BaseResource, Generic[ModelT]):
             ModelT,
             execute_sync(
                 self,
-                lambda: self._build("PUT", f"{self.path}/{id}", body=obj),
+                lambda: self._build("PUT", self._item_path(id), body=obj),
                 self._parse_one,
             ),
         )
@@ -270,7 +275,7 @@ class AsasResource(BaseResource, Generic[ModelT]):
         self._require_path()
         execute_sync(
             self,
-            lambda: self._build("DELETE", f"{self.path}/{id}"),
+            lambda: self._build("DELETE", self._item_path(id)),
             lambda r: None,
         )
 
@@ -310,7 +315,7 @@ class AsasAsyncResource(BaseResource, Generic[ModelT]):
         return cast(
             ModelT,
             await execute_async(
-                self, lambda: self._build("GET", f"{self.path}/{id}"), self._parse_one
+                self, lambda: self._build("GET", self._item_path(id)), self._parse_one
             ),
         )
 
@@ -331,7 +336,7 @@ class AsasAsyncResource(BaseResource, Generic[ModelT]):
             ModelT,
             await execute_async(
                 self,
-                lambda: self._build("PUT", f"{self.path}/{id}", body=obj),
+                lambda: self._build("PUT", self._item_path(id), body=obj),
                 self._parse_one,
             ),
         )
@@ -341,7 +346,7 @@ class AsasAsyncResource(BaseResource, Generic[ModelT]):
         self._require_path()
         await execute_async(
             self,
-            lambda: self._build("DELETE", f"{self.path}/{id}"),
+            lambda: self._build("DELETE", self._item_path(id)),
             lambda r: None,
         )
 

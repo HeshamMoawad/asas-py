@@ -484,3 +484,41 @@ def test_plain_subclass_inherits_generic_model() -> None:
         pass
 
     assert Admins.model is User
+
+
+# --- Id encoding --------------------------------------------------------------
+
+HOSTILE_ID = "a/../../admin?x=1"
+ENCODED_URL = f"{BASE}/users/a%2F..%2F..%2Fadmin%3Fx%3D1"
+
+
+def _crud_calls(users: Any) -> list:
+    return [
+        lambda: users.get(HOSTILE_ID),
+        lambda: users.update(HOSTILE_ID, {"id": 1, "name": "a"}),
+        lambda: users.delete(HOSTILE_ID),
+    ]
+
+
+def test_crud_id_is_percent_encoded() -> None:
+    client = StoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE, assert_all_called=False) as mock:
+        route = mock.route().mock(
+            return_value=HttpxResponse(200, json={"id": 1, "name": "a"})
+        )
+        for call in _crud_calls(client.users):
+            call()
+        assert [str(c.request.url) for c in route.calls] == [ENCODED_URL] * 3
+
+
+@pytest.mark.asyncio
+async def test_crud_id_is_percent_encoded_async() -> None:
+    client = AsyncStoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE, assert_all_called=False) as mock:
+        route = mock.route().mock(
+            return_value=HttpxResponse(200, json={"id": 1, "name": "a"})
+        )
+        for call in _crud_calls(client.users):
+            await call()
+        assert [str(c.request.url) for c in route.calls] == [ENCODED_URL] * 3
+    await client.engine.aclose()
