@@ -2,6 +2,8 @@ site_name: Asas-py Documentation
 repo_url: https://github.com/HeshamMoawad/asas-py
 repo_name: HeshamMoawad/asas-py
 site_url: https://heshammoawad.github.io/asas-py/
+exclude_docs: |
+  superpowers/
 plugins:
   - search
   - i18n:
