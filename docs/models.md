@@ -6,7 +6,7 @@ are the shared language every layer speaks, which is exactly what lets
 [engines](engines.md) and [auth strategies](authentication.md) be swapped freely.
 
 ```
-@get method  →  Request  →  auth.apply()  →  engine.send()  →  Response  →  your method
+@get method  →  Request  →  auth.apply()  →  engine.send()  →  Response  →  parsed return value
 ```
 
 ## Request
@@ -18,10 +18,11 @@ The protocol-agnostic request that auth strategies mutate and engines send.
 class Request:
     method: str
     url: str
-    params: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = {}
-    payload: Optional[Payload] = None
-    timeout: Optional[float] = None
+    params: dict[str, Any] | None = None
+    headers: dict[str, str] = {}
+    cookies: dict[str, str] = {}
+    payload: Payload | None = None
+    timeout: float | None = None
 ```
 
 | Field | Meaning |
@@ -30,21 +31,23 @@ class Request:
 | `url` | Fully built URL (`base_url` + resolved path) |
 | `params` | Query parameters |
 | `headers` | Request headers — where most auth strategies write |
+| `cookies` | Cookies to send; engines must send them (`APIKeyAuth` in a cookie writes here) |
 | `payload` | The request body, if any (see [`Payload`](#payload)) |
 | `timeout` | Optional per-request timeout |
 
 An [`Auth.apply`](authentication.md#how-auth-is-applied) method receives a `Request`, mutates
-its `headers` or `params`, and returns it.
+its `headers`, `cookies` or `params`, and returns it.
 
 ## Response
 
-The protocol-agnostic response your engine produces and your method consumes.
+The protocol-agnostic response your engine produces. Asas parses it according to the
+endpoint's return annotation.
 
 ```python
 @dataclass
 class Response:
     status_code: int
-    headers: Dict[str, str]
+    headers: dict[str, str]
     content: bytes
     text: str
 
@@ -60,8 +63,8 @@ class Response:
 | `text` | Response body decoded to `str` |
 | `json()` | Parse `content` as JSON |
 
-When an endpoint has no `response_model`, this `Response` is what Asas injects as your
-method's first argument — call `response.json()` to read the body.
+When an endpoint is annotated `-> Response`, this object is what the call returns — call
+`response.json()` to read the body. See [Request Bodies & Responses](request-response.md).
 
 ## Payload
 
@@ -70,21 +73,21 @@ A general container for request data, carried on `Request.payload`.
 ```python
 @dataclass
 class Payload:
-    data: Optional[Any] = None
-    json: Optional[Dict[str, Any]] = None
-    files: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = {}
+    data: dict[str, Any] | bytes | None = None
+    json: Any = None
+    files: dict[str, Any] | None = None
+    headers: dict[str, str] = {}
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `data` | Raw / form-encoded body |
-| `json` | A JSON body — what Pydantic models are serialized into |
-| `files` | File uploads |
+| `data` | Form fields (a `dict`) or a raw body (`bytes`) |
+| `json` | A JSON body of any shape (object, array, scalar) — what models are dumped into |
+| `files` | File uploads, sent as multipart together with any form `data` |
 | `headers` | Payload-specific headers |
 
-When you pass a Pydantic model to an endpoint, Asas serializes it and stores the result in
-`Payload.json`. See [Request Bodies & Responses](request-response.md) for how that routing
+When you pass a Pydantic model to an endpoint, Asas dumps it (JSON-safe, by alias) and stores
+the result in `Payload.json`; `Form` and `File` parameters fill `data` and `files`. See [Request Bodies & Responses](request-response.md) for how that routing
 works.
 
 !!! note "You rarely build these by hand"

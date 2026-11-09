@@ -2,7 +2,8 @@
 
 Authentication in Asas is a small, swappable strategy object. You pass one as `auth=` when
 constructing a client, and it is applied to every request (unless an endpoint opts out with
-[`use_auth=False`](routing.md#per-endpoint-auth-control)).
+[`use_auth=False`](routing.md#per-endpoint-auth-control)). The `auth=` argument is
+keyword-only.
 
 ```python
 from asas import AsasClient, BearerAuth
@@ -86,6 +87,8 @@ accepted.
     # -> Cookie: session=secret-key
     ```
 
+    The key is written to `Request.cookies`, and the engine sends it as a cookie.
+
 `APIKeyLocation` has three members: `HEADER`, `QUERY`, and `COOKIE`. Passing an unknown
 location string raises `ValueError`.
 
@@ -125,7 +128,8 @@ You can customize the header and prefix with `key_name=` and `token_prefix=` (de
 
 !!! note "Retry limit"
     The refresh-and-retry happens at most once per call. If the retried request also returns
-    `401`, that response is returned as-is.
+    `401`, it is treated like any other response: an `UnauthorizedError` is raised (unless
+    the endpoint returns `Response` or `raise_for_status` is off). See [Errors](errors.md).
 
 ## Customizing when a refresh happens
 

@@ -28,11 +28,30 @@ implements two methods, an async engine implements their async twins:
 When you call a decorated method, Asas checks that the engine supports the right mode and
 raises a clear `TypeError` if, say, you call an `async def` endpoint on a sync-only engine.
 
+## The engine contract
+
+Whatever library an engine wraps, it must follow two rules:
+
+- **Raise `TransportError`.** If the request produces no response (connection refused, DNS
+  failure, timeout, …), catch the library's exception and raise
+  `asas.TransportError(message, request)` `from` the original. Asas, [hooks](hooks.md) and
+  your callers rely on this single type; letting a library exception escape breaks that
+  contract. (The bundled engines do this for `httpx.TransportError` and
+  `requests.RequestException`.)
+- **Send `Request.cookies`.** `request.cookies` is a `dict[str, str]` that must be sent as
+  cookies. Auth strategies such as `APIKeyAuth` with `APIKeyLocation.COOKIE` write there
+  instead of building a raw `Cookie` header.
+
+It should also honour `request.timeout` when it is set, and send `payload.data` (a `dict` as
+form fields, `bytes` as the raw body), `payload.json` and `payload.files`.
+
 ## The bundled httpx engine
 
 `HTTPXSyncEngine` and `HTTPXAsyncEngine` are the reference implementations and the default
 when no engine is passed. They lazily create the underlying `httpx` client and forward any
-constructor `**kwargs` to it.
+constructor `**kwargs` to it. Requests are built through the `httpx` client, so its defaults
+(`headers`, `timeout`, `cookies`, …) apply, and a per-endpoint `timeout=` overrides the client
+default.
 
 ```python
 from asas import AsasClient, HTTPXSyncEngine
@@ -45,8 +64,9 @@ client = AsasClient(
 )
 ```
 
-Passing the engine explicitly is useful when you want to share one engine between clients or
-configure it in a single place.
+Passing the engine explicitly is useful when you want to configure it in a single place. If
+you share one engine between clients, remember that closing any client closes the engine — see
+[Clients](clients.md#closing-the-client).
 
 ## The bundled requests engine (optional extra)
 
@@ -69,8 +89,9 @@ client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngin
 ```
 
 It lazily creates a `requests.Session` and forwards any constructor `**kwargs` to it, just like
-the httpx engine. It also supports JSON bodies, raw `data`, `files`, query params, and custom
-headers through the same [`Payload`](models.md).
+the httpx engine. It also supports JSON bodies, form `data`, `files` (sent together with `data`
+as multipart), cookies, query params, and custom headers through the same
+[`Payload`](models.md), and it raises `TransportError` on a `requests` failure.
 
 !!! warning "Synchronous only"
     The `requests` library has no native async support, so the requests engine is
@@ -82,12 +103,13 @@ headers through the same [`Payload`](models.md).
 ## Writing a custom engine
 
 To support another transport (`aiohttp`, `urllib`, an in-memory test double, …), implement the
-protocol and convert to and from `asas.core.models`. Nothing else in the framework needs to
-change. (A `requests` engine is already bundled — see
+protocol, convert to and from `asas.core.models`, and follow the
+[engine contract](#the-engine-contract). Nothing else in the framework needs to change. (A `requests` engine is already bundled — see
 [above](#the-bundled-requests-engine-optional-extra); you don't need to write your own.)
 
 ```python
 import requests
+from asas import TransportError
 from asas.core.models import Request, Response
 
 class RequestsEngine:
@@ -96,13 +118,18 @@ class RequestsEngine:
 
     def send(self, request: Request) -> Response:
         payload = request.payload
-        resp = self.session.request(
-            method=request.method,
-            url=request.url,
-            params=request.params,
-            headers=request.headers,
-            json=payload.json if payload else None,
-        )
+        try:
+            resp = self.session.request(
+                method=request.method,
+                url=request.url,
+                params=request.params,
+                headers=request.headers,
+                cookies=request.cookies,
+                timeout=request.timeout,
+                json=payload.json if payload else None,
+            )
+        except requests.RequestException as exc:
+            raise TransportError(str(exc), request) from exc
         return Response(
             status_code=resp.status_code,
             headers=dict(resp.headers),

@@ -6,7 +6,7 @@
 [استراتيجيات المصادقة](authentication.md) بحرّية.
 
 ```
-دالة @get  →  Request  →  auth.apply()  →  engine.send()  →  Response  →  دالتك
+@get method  →  Request  →  auth.apply()  →  engine.send()  →  Response  →  parsed return value
 ```
 
 ## Request
@@ -18,10 +18,11 @@
 class Request:
     method: str
     url: str
-    params: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = {}
-    payload: Optional[Payload] = None
-    timeout: Optional[float] = None
+    params: dict[str, Any] | None = None
+    headers: dict[str, str] = {}
+    cookies: dict[str, str] = {}
+    payload: Payload | None = None
+    timeout: float | None = None
 ```
 
 | الحقل | المعنى |
@@ -30,20 +31,21 @@ class Request:
 | `url` | عنوان URL المبني بالكامل (`base_url` + المسار المُحلّ) |
 | `params` | وسائط الاستعلام |
 | `headers` | ترويسات الطلب — حيث تكتب معظم استراتيجيات المصادقة |
+| `cookies` | الكوكيز المراد إرسالها؛ على المحرّكات إرسالها (`APIKeyAuth` في كوكي تكتب هنا) |
 | `payload` | جسم الطلب، إن وُجد (راجع `Payload` أدناه) |
 | `timeout` | مهلة اختيارية لكل طلب |
 
-تتلقّى دالة `Auth.apply` كائن `Request`، وتعدّل `headers` أو `params` فيه، ثم تعيده.
+تتلقّى دالة `Auth.apply` كائن `Request`، وتعدّل `headers` أو `cookies` أو `params` فيه، ثم تعيده.
 
 ## Response
 
-الاستجابة المستقلّة عن النقل التي ينتجها محرّكك وتستهلكها دالتك.
+الاستجابة المستقلّة عن النقل التي ينتجها محرّكك. يحلّلها أساس بحسب تعليق نوع القيمة المُعادة لنقطة النهاية.
 
 ```python
 @dataclass
 class Response:
     status_code: int
-    headers: Dict[str, str]
+    headers: dict[str, str]
     content: bytes
     text: str
 
@@ -59,8 +61,8 @@ class Response:
 | `text` | جسم الاستجابة مُفكّك الترميز إلى `str` |
 | `json()` | تحليل `content` بوصفه JSON |
 
-عندما لا تملك نقطة النهاية `response_model`، يكون هذا `Response` هو ما يحقنه أساس بوصفه الوسيط
-الأول لدالتك — استدعِ `response.json()` لقراءة الجسم.
+عندما تكون نقطة النهاية مُعلَّقة بـ `-> Response`، يكون هذا الكائن هو ما يعيده النداء —
+استدعِ `response.json()` لقراءة الجسم. راجع [أجسام الطلب والاستجابات](request-response.md).
 
 ## Payload
 
@@ -69,20 +71,21 @@ class Response:
 ```python
 @dataclass
 class Payload:
-    data: Optional[Any] = None
-    json: Optional[Dict[str, Any]] = None
-    files: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = {}
+    data: dict[str, Any] | bytes | None = None
+    json: Any = None
+    files: dict[str, Any] | None = None
+    headers: dict[str, str] = {}
 ```
 
 | الحقل | المعنى |
 | --- | --- |
-| `data` | جسم خام / مُرمَّز بصيغة نموذج |
-| `json` | جسم JSON — وهو ما تُسلسَل إليه نماذج Pydantic |
-| `files` | رفع الملفّات |
+| `data` | حقول نموذج (`dict`) أو جسم خام (`bytes`) |
+| `json` | جسم JSON بأي شكل (كائن أو مصفوفة أو قيمة مفردة) — وهو ما تُفرَّغ إليه النماذج |
+| `files` | رفع الملفّات، يُرسَل multipart مع أي `data` نموذجية |
 | `headers` | ترويسات خاصة بالجسم |
 
-عندما تمرّر نموذج Pydantic إلى نقطة نهاية، يُسلسله أساس ويخزّن الناتج في `Payload.json`. راجع
+عندما تمرّر نموذج Pydantic إلى نقطة نهاية، يُفرّغه أساس (بصيغة آمنة لـ JSON وبحسب الاسم
+المستعار) ويخزّن الناتج في `Payload.json`؛ أما وسائط `Form` و`File` فتملأ `data` و`files`. راجع
 [أجسام الطلب والاستجابات](request-response.md) لمعرفة كيفية عمل هذا التوجيه.
 
 !!! note "نادرًا ما تبني هذه بنفسك"
