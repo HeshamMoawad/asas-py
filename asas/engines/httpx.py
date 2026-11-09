@@ -2,7 +2,8 @@ from typing import Any, Optional
 
 import httpx
 
-from asas.core.models import Payload, Request, Response
+from asas.core.models import Request, Response
+from asas.errors import TransportError
 
 
 class HTTPXSyncEngine:
@@ -28,7 +29,10 @@ class HTTPXSyncEngine:
 
     def send(self, request: Request) -> Response:
         httpx_req = self._prepare_httpx_request(request)
-        response = self.client.send(httpx_req)
+        try:
+            response = self.client.send(httpx_req)
+        except httpx.TransportError as exc:
+            raise TransportError(str(exc), request) from exc
         return self._from_httpx_response(response)
 
     def close(self) -> None:
@@ -60,7 +64,10 @@ class HTTPXAsyncEngine:
 
     async def asend(self, request: Request) -> Response:
         httpx_req = self._prepare_httpx_request(request)
-        response = await self.client.send(httpx_req)
+        try:
+            response = await self.client.send(httpx_req)
+        except httpx.TransportError as exc:
+            raise TransportError(str(exc), request) from exc
         return self._from_httpx_response(response)
 
     async def aclose(self) -> None:
@@ -70,23 +77,23 @@ class HTTPXAsyncEngine:
 
 
 def _prepare_httpx_request(request: Request) -> httpx.Request:
-    data = None
-    json_payload = None
-    files = None
-
-    if request.payload:
-        data = request.payload.data
-        json_payload = request.payload.json
-        files = request.payload.files
+    payload = request.payload
+    data = payload.data if payload else None
+    extensions = {}
+    if request.timeout is not None:
+        extensions["timeout"] = httpx.Timeout(request.timeout).as_dict()
 
     return httpx.Request(
         method=request.method,
         url=request.url,
         params=request.params,
         headers=request.headers,
-        content=data if not json_payload and not files else None,
-        json=json_payload,
-        files=files,
+        cookies=request.cookies or None,
+        content=data if isinstance(data, bytes) else None,
+        data=data if isinstance(data, dict) else None,
+        json=payload.json if payload else None,
+        files=payload.files if payload else None,
+        extensions=extensions,
     )
 
 

@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 
 @dataclass
 class Payload:
     """A general container for request data."""
 
-    data: Optional[Any] = None
-    json: Optional[Dict[str, Any]] = None
-    files: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = field(default_factory=dict)
+    data: dict[str, Any] | bytes | None = None
+    json: Any = None
+    files: dict[str, Any] | None = None
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -18,10 +20,11 @@ class Request:
 
     method: str
     url: str
-    params: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = field(default_factory=dict)
-    payload: Optional[Payload] = None
-    timeout: Optional[float] = None
+    params: dict[str, Any] | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+    cookies: dict[str, str] = field(default_factory=dict)
+    payload: Payload | None = None
+    timeout: float | None = None
 
 
 @dataclass
@@ -29,7 +32,7 @@ class Response:
     """Protocol-agnostic response model."""
 
     status_code: int
-    headers: Dict[str, str]
+    headers: dict[str, str]
     content: bytes
     text: str
 

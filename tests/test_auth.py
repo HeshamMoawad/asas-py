@@ -8,6 +8,7 @@ from asas import (
     AsasClient,
     BasicAuth,
     BearerAuth,
+    Request,
     Response,
     get,
 )
@@ -102,3 +103,11 @@ def test_runtime_auth_update() -> None:
         route3 = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
         assert client.get_protected() is True
         assert "Authorization" not in route3.calls.last.request.headers
+
+
+def test_api_key_cookie_goes_to_request_cookies() -> None:
+    request = Request("GET", "https://api.example.com/x")
+    APIKeyAuth("k", name="session", location=APIKeyLocation.COOKIE).apply(request)
+    APIKeyAuth("t", name="trace", location=APIKeyLocation.COOKIE).apply(request)
+    assert request.cookies == {"session": "k", "trace": "t"}
+    assert "Cookie" not in request.headers
