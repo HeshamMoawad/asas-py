@@ -466,3 +466,21 @@ async def test_async_resource_generic_and_errors() -> None:
             await client.users.get(1)
         assert await client.users.delete(2) is None  # type: ignore[func-returns-value]
     await client.engine.aclose()
+
+
+def test_inherited_explicit_model_not_overridden_by_parent_generic() -> None:
+    class X(AsasResource[User]):
+        path = "/x"
+        model = Admin
+
+    class Y(X):
+        pass
+
+    assert Y.model is Admin
+
+
+def test_plain_subclass_inherits_generic_model() -> None:
+    class Admins(Users):
+        pass
+
+    assert Admins.model is User

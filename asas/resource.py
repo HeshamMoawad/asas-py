@@ -85,7 +85,7 @@ class BaseResource:
         super().__init_subclass__(**kwargs)
         if "model" in cls.__dict__:
             return
-        for base in getattr(cls, "__orig_bases__", ()):
+        for base in cls.__dict__.get("__orig_bases__", ()):
             origin = get_origin(base)
             if not (isinstance(origin, type) and issubclass(origin, BaseResource)):
                 continue
