@@ -31,3 +31,13 @@ def check(c: C) -> None:
 
 async def acheck(c: AC) -> None:
     assert_type(await c.get_user(1), User)
+
+
+def check_ctx() -> None:
+    with C() as c:
+        assert_type(c, C)
+
+
+async def acheck_ctx() -> None:
+    async with AC() as c:
+        assert_type(c, AC)

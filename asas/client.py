@@ -1,5 +1,7 @@
 from typing import Any, Generic, Optional, TypeVar
 
+from typing_extensions import Self
+
 from asas.auth import Auth
 from asas.core.engine import AsyncEngine, SyncEngine
 from asas.engines.httpx import HTTPXAsyncEngine, HTTPXSyncEngine
@@ -65,6 +67,16 @@ class AsasClient(BaseAsasClient[SyncEngine]):
             raise_for_status=raise_for_status,
         )
 
+    def close(self) -> None:
+        """Close the underlying engine (even one supplied by the caller)."""
+        self.engine.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
 
 class AsasAsyncClient(BaseAsasClient[AsyncEngine]):
     """
@@ -91,3 +103,13 @@ class AsasAsyncClient(BaseAsasClient[AsyncEngine]):
             hooks=hooks,
             raise_for_status=raise_for_status,
         )
+
+    async def aclose(self) -> None:
+        """Close the underlying engine (even one supplied by the caller)."""
+        await self.engine.aclose()
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.aclose()
