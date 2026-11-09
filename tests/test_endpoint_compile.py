@@ -191,6 +191,8 @@ def test_same_wire_name_in_different_locations_is_allowed() -> None:
         (None, "none", False),
         (bytes, "bytes", False),
         (str, "str", False),
+        (Optional[str], "str", True),
+        (Optional[bytes], "bytes", True),
         (User, "model", False),
         (list[User], "model", False),
         (Optional[User], "model", True),

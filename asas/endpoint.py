@@ -108,11 +108,12 @@ def _return_kind(ann: Any) -> tuple[ReturnKind, Optional[TypeAdapter[Any]], bool
         return "none", None, False
     if ann is Response:
         return "response", None, False
-    if ann is bytes:
-        return "bytes", None, False
-    if ann is str:
-        return "str", None, False
     optional = _is_union(ann) and _NONE_TYPE in get_args(ann)
+    core = _strip_none(ann)
+    if core is bytes:
+        return "bytes", None, optional
+    if core is str:
+        return "str", None, optional
     return "model", TypeAdapter(ann), optional
 
 
@@ -316,10 +317,10 @@ class EndpointSpec:
             return response
         if kind == "none":
             return None
-        if kind == "bytes":
-            return response.content
-        if kind == "str":
-            return response.text
+        if kind in ("bytes", "str"):
+            if self.returns_optional and not response.content:
+                return None
+            return response.content if kind == "bytes" else response.text
         assert self.return_adapter is not None
         if not response.content.strip() and self.returns_optional:
             return None

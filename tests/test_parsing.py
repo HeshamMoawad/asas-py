@@ -98,3 +98,32 @@ def test_schema_mismatch_wraps_pydantic_error() -> None:
     with pytest.raises(ResponseValidationError) as exc:
         spec_for(f_user).parse_response(resp(200, b'{"id":"x"}'))
     assert isinstance(exc.value.error, pydantic.ValidationError)
+
+
+def f_opt_str(self: Any) -> str | None:
+    raise NotImplementedError
+
+
+def f_opt_bytes(self: Any) -> bytes | None:
+    raise NotImplementedError
+
+
+@pytest.mark.parametrize(
+    "func,body,expected",
+    [
+        (f_opt_str, b"plain text", "plain text"),
+        (f_opt_str, b"", None),
+        (f_opt_bytes, b"\x00raw", b"\x00raw"),
+        (f_opt_bytes, b"", None),
+    ],
+)
+def test_optional_str_and_bytes(
+    func: Callable[..., Any], body: bytes, expected: Any
+) -> None:
+    r = Response(
+        status_code=200,
+        headers={"content-type": "text/plain"},
+        content=body,
+        text=body.decode("latin-1"),
+    )
+    assert spec_for(func).parse_response(r) == expected
