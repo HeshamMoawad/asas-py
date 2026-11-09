@@ -88,9 +88,11 @@ from asas.engines.requests import RequestsSyncEngine
 client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngine())
 ```
 
-It lazily creates a `requests.Session` and forwards any constructor `**kwargs` to it, just like
-the httpx engine. It also supports JSON bodies, form `data`, `files` (sent together with `data`
-as multipart), cookies, query params, and custom headers through the same
+It lazily creates a `requests.Session`. Unlike the httpx engine, it takes no constructor
+arguments, because `requests.Session()` accepts none. Configure the session through its
+attributes instead, for example `engine.session.headers.update({"X-App": "demo"})`. It also
+supports JSON bodies, form `data`, `files` (sent together with `data` as multipart), cookies,
+query params, and custom headers through the same
 [`Payload`](models.md), and it raises `TransportError` on a `requests` failure.
 
 !!! warning "Synchronous only"

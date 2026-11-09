@@ -85,9 +85,10 @@ from asas.engines.requests import RequestsSyncEngine
 client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngine())
 ```
 
-ينشئ محاور `requests.Session` بتراخٍ ويعيد توجيه أي `**kwargs` إلى مُنشئه، تمامًا مثل محرّك
-`httpx`. وهو يدعم أيضًا أجسام JSON والبيانات الخام `data` والملفات `files` ووسائط الاستعلام
-والكوكيز والترويسات المخصّصة عبر [`Payload`](models.md) نفسه (ويُرسَل `files` مع `data` معًا
+ينشئ جلسة `requests.Session` بتراخٍ. وعلى خلاف محرّك `httpx` لا يأخذ وسائط في مُنشئه، لأن
+`requests.Session()` لا يقبل أيًّا منها. اضبط الجلسة عبر خصائصها بدلًا من ذلك، مثل
+`engine.session.headers.update({"X-App": "demo"})`. وهو يدعم أيضًا أجسام JSON والبيانات الخام
+`data` والملفات `files` ووسائط الاستعلام والكوكيز والترويسات المخصّصة عبر [`Payload`](models.md) نفسه (ويُرسَل `files` مع `data` معًا
 بوصفهما multipart)، ويرفع `TransportError` عند فشل `requests`.
 
 !!! warning "متزامن فقط"
