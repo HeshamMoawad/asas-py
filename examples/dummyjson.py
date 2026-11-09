@@ -1,12 +1,13 @@
+"""A sync and an async client against the public DummyJSON API (needs network)."""
+
 import asyncio
 from typing import List
 
 from pydantic import BaseModel
 
-from asas import AsasAsyncClient, AsasClient, Response, get
+from asas import AsasAsyncClient, AsasClient, get
 
 
-# Define Pydantic models for better type safety
 class Product(BaseModel):
     id: int
     title: str
@@ -25,15 +26,15 @@ class DummyJSONClient(AsasClient):
     def __init__(self) -> None:
         super().__init__(base_url="https://dummyjson.com")
 
-    @get("/products", response_model=ProductList)
-    def get_products(self, data: ProductList) -> List[Product]:
-        """Get all products synchronously with Pydantic parsing."""
-        return data.products
+    @get("/products")
+    def get_products(self) -> ProductList:
+        """The return annotation is the parsed type."""
+        raise NotImplementedError
 
-    @get("/products/search", response_model=ProductList)
-    def search_products(self, data: ProductList, q: str) -> List[Product]:
-        """Search for products using query parameters."""
-        return data.products
+    @get("/products/search")
+    def search_products(self, q: str) -> ProductList:
+        """``q`` is not in the path, so it becomes a query parameter."""
+        raise NotImplementedError
 
 
 class AsyncDummyJSONClient(AsasAsyncClient):
@@ -42,39 +43,37 @@ class AsyncDummyJSONClient(AsasAsyncClient):
     def __init__(self) -> None:
         super().__init__(base_url="https://dummyjson.com")
 
-    @get("/products/{id}", response_model=Product)
-    async def get_product_async(self, product: Product, id: int) -> Product:
-        """Get a single product asynchronously."""
-        return product
+    @get("/products/{id}")
+    async def get_product_async(self, id: int) -> Product:
+        """``id`` fills the ``{id}`` placeholder in the path."""
+        raise NotImplementedError
 
 
 async def main() -> None:
-    sync_client = DummyJSONClient()
-    async_client = AsyncDummyJSONClient()
+    print("--- DummyJSON Example ---")
 
-    print("--- DummyJSON Enhanced Example ---")
+    with DummyJSONClient() as sync_client:
+        try:
+            print("\n[Sync] Fetching all products...")
+            page = sync_client.get_products()
+            print(f"Found {len(page.products)} of {page.total} products.")
+            print(
+                f"First product: {page.products[0].title} (${page.products[0].price})"
+            )
 
-    # Sync: Get products
-    try:
-        print("\n[Sync] Fetching all products...")
-        products = sync_client.get_products()
-        if products:
-            print(f"Found {len(products)} products.")
-            print(f"First product: {products[0].title} (${products[0].price})")
-    except Exception as e:
-        print(f"Sync request failed: {e}")
+            print("\n[Sync] Searching for 'phone'...")
+            print(f"Matches: {sync_client.search_products(q='phone').total}")
+        except Exception as e:
+            print(f"Sync request failed: {e}")
 
-    # Async: Get specific product
-    try:
-        print("\n[Async] Fetching product ID 1...")
-        product = await async_client.get_product_async(id=1)
-        print(f"Product title: {product.title}")
-        print(f"Description: {product.description[:50]}...")
-    except Exception as e:
-        print(f"Async request failed: {e}")
-
-    sync_client.engine.close()
-    await async_client.engine.aclose()
+    async with AsyncDummyJSONClient() as async_client:
+        try:
+            print("\n[Async] Fetching product ID 1...")
+            product = await async_client.get_product_async(id=1)
+            print(f"Product title: {product.title}")
+            print(f"Description: {product.description[:50]}...")
+        except Exception as e:
+            print(f"Async request failed: {e}")
 
 
 if __name__ == "__main__":
