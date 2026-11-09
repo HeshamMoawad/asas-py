@@ -72,8 +72,9 @@ lenient = Users(base_url="https://api.example.com", raise_for_status=False)
 
 ### الانسحاب عبر `-> Response`
 
-نقطة النهاية المُعلَّقة بـ `-> Response` **لا ترفع خطأً بسبب الحالة أبدًا**، مهما كانت قيمة
-`raise_for_status`، ولا تُستدعى خطافات `on_error` لها. استخدمها عندما تريد فحص الحالة بنفسك:
+نقطة النهاية المُعلَّقة بـ `-> Response` **لا ترفع خطأً بسبب حالة HTTP أبدًا**، مهما كانت قيمة
+`raise_for_status`، لذا لا يُستدعى `on_error` للحالة. أما `TransportError` فيبقى يُرفع ويُطلق
+`on_error`. استخدمها عندما تريد فحص الحالة بنفسك:
 
 ```python
 from asas import AsasClient, Response, get

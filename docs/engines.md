@@ -104,7 +104,8 @@ as multipart), cookies, query params, and custom headers through the same
 
 To support another transport (`aiohttp`, `urllib`, an in-memory test double, …), implement the
 protocol, convert to and from `asas.core.models`, and follow the
-[engine contract](#the-engine-contract). Nothing else in the framework needs to change. (A `requests` engine is already bundled — see
+[engine contract](#the-engine-contract). Nothing else in the framework needs to change.
+(A `requests` engine is already bundled — see
 [above](#the-bundled-requests-engine-optional-extra); you don't need to write your own.)
 
 ```python

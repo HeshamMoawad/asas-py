@@ -114,11 +114,13 @@
 
     ```python
     @get("/search")
-    def search(self, filters: Annotated[dict, Query()]) -> dict:
-        raise NotImplementedError   # explicit Query; a bare `dict` is a JSON body
+    def search(self, status: str, limit: int = 10) -> dict:
+        raise NotImplementedError   # scalars go to the query: ?status=...&limit=10
     ```
 
-يجب الآن أن يكون لكل وسيط تعليق نوع.
+قيمة `dict` **لا** تُفكَّك إلى مفاتيح استعلام: لو عُلِّقت بـ `Query()` لأُرسلت قيمة واحدة نصّية.
+ولإرسال عدّة مفاتيح استعلام، صرّح بكل واحد منها وسيطًا قياسيًا مستقلًا (كما أعلاه). ويجب الآن
+أن يكون لكل وسيط تعليق نوع.
 
 ## 5. أُسقط دعم بايثون 3.9
 

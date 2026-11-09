@@ -2,8 +2,8 @@
 
 A **resource** groups the endpoints for one kind of record (users, orders, …) and attaches
 them to a client. Declare a `path` and parametrize the resource with your model
-(`AsasResource[User]`), and you get the five CRUD operations **and** lazy pagination for free — while still being able to add custom endpoints
-with the usual decorators.
+(`AsasResource[User]`), and you get the five CRUD operations **and** lazy pagination for
+free — while still being able to add custom endpoints with the usual decorators.
 
 ```python
 from pydantic import BaseModel

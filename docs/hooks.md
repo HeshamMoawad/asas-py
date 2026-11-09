@@ -5,7 +5,10 @@ endpoint: logging, tracing headers, metrics and so on. They are plain synchronou
 collected in a `Hooks` dataclass.
 
 ```python
+from collections.abc import Callable
 from dataclasses import dataclass, field
+
+from asas import AsasError, Request, Response
 
 
 @dataclass
@@ -99,8 +102,8 @@ TransportError, HTTPStatusError, ResponseValidationError  →  on_error*  →  r
   or challenge retry the request is rebuilt, and `on_request` and `on_response` run again.
 - `on_error` is observational. It runs **before** the error is raised and cannot suppress it.
   It fires only for `TransportError`, `HTTPStatusError` and `ResponseValidationError` raised
-  by the pipeline. It is not called for a `-> Response` endpoint, which never raises on
-  status.
+  by the pipeline. A `-> Response` endpoint never raises on HTTP status, so `on_error` is not
+  called for a status there; a `TransportError` is still raised and still fires `on_error`.
 - An exception raised **inside a hook** propagates unchanged, and `on_error` is not called
   for it.
 - Resources (`AsasResource`) run through the same pipeline, so client hooks apply to their

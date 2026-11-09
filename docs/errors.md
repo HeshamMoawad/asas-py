@@ -74,9 +74,9 @@ still returns `401` after the single retry does.
 
 ### Opting out with `-> Response`
 
-An endpoint annotated `-> Response` **never raises on status**, whatever
-`raise_for_status` says, and `on_error` hooks are not called for it. Use it when you want to
-inspect the status yourself:
+An endpoint annotated `-> Response` **never raises on HTTP status**, whatever
+`raise_for_status` says, so `on_error` is not called for a status. A `TransportError` is still
+raised and still fires `on_error`. Use it when you want to inspect the status yourself:
 
 ```python
 from asas import AsasClient, Response, get

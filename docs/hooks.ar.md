@@ -4,7 +4,10 @@
 وترويسات التتبّع والمقاييس وغيرها. وهي دوال عادية متزامنة تُجمَع في فئة البيانات `Hooks`.
 
 ```python
+from collections.abc import Callable
 from dataclasses import dataclass, field
+
+from asas import AsasError, Request, Response
 
 
 @dataclass
@@ -96,8 +99,9 @@ TransportError, HTTPStatusError, ResponseValidationError  →  on_error*  →  r
 - يعمل `on_request` بعد تطبيق المصادقة، فترى الخطافات الترويسات النهائية. وعند إعادة محاولة
   التجديد أو التحدّي يُعاد بناء الطلب، ويعمل `on_request` و`on_response` مرّة أخرى.
 - `on_error` للمراقبة فقط. يعمل **قبل** رفع الخطأ ولا يستطيع منعه. ولا يُطلَق إلا لأخطاء
-  `TransportError` و`HTTPStatusError` و`ResponseValidationError` التي يرفعها خط المعالجة. ولا
-  يُستدعى لنقطة نهاية `-> Response` التي لا ترفع خطأً بسبب الحالة أبدًا.
+  `TransportError` و`HTTPStatusError` و`ResponseValidationError` التي يرفعها خط المعالجة. ونقطة
+  النهاية `-> Response` لا ترفع خطأً بسبب حالة HTTP أبدًا، لذا لا يُستدعى `on_error` للحالة
+  هناك؛ أما `TransportError` فيبقى يُرفع ويُطلق `on_error`.
 - الاستثناء المرفوع **داخل خطّاف** ينتشر كما هو، ولا يُستدعى `on_error` له.
 - تمرّ الموارد (`AsasResource`) عبر خط المعالجة نفسه، فتنطبق خطافات العميل على طلبات CRUD
   والترقيم الصفحي لديها أيضًا.

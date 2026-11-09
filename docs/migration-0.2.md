@@ -115,11 +115,13 @@ Unannotated `dict` parameters now go to the **body**, not the query string. Use
 
     ```python
     @get("/search")
-    def search(self, filters: Annotated[dict, Query()]) -> dict:
-        raise NotImplementedError   # explicit Query; a bare `dict` is a JSON body
+    def search(self, status: str, limit: int = 10) -> dict:
+        raise NotImplementedError   # scalars go to the query: ?status=...&limit=10
     ```
 
-Every parameter must now have a type annotation.
+A `dict` value is **not** expanded into query keys: annotated as `Query()` it would be sent as
+one stringified value. To send several query keys, declare each as its own scalar parameter
+(as above). Every parameter must now have a type annotation.
 
 ## 5. Python 3.9 is dropped
 
