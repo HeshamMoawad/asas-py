@@ -18,9 +18,10 @@ from typing import (
 )
 from urllib.parse import quote
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from asas.core.models import Payload, Request, Response
+from asas.errors import ResponseValidationError
 from asas.params import Body, Header, Location, Param, Path, Query
 
 ReturnKind = Literal["response", "none", "bytes", "str", "model"]
@@ -292,6 +293,25 @@ class EndpointSpec:
             payload=payload,
             timeout=self.options.timeout,
         )
+
+    def parse_response(self, response: Response) -> Any:
+        """Convert ``response`` per the return annotation (no status check)."""
+        kind = self.return_kind
+        if kind == "response":
+            return response
+        if kind == "none":
+            return None
+        if kind == "bytes":
+            return response.content
+        if kind == "str":
+            return response.text
+        assert self.return_adapter is not None
+        if not response.content.strip() and self.returns_optional:
+            return None
+        try:
+            return self.return_adapter.validate_json(response.content)
+        except ValidationError as exc:
+            raise ResponseValidationError(response, exc) from exc
 
     @staticmethod
     def _validate(name: str, placeholders: list[str], specs: list[ParamSpec]) -> None:
