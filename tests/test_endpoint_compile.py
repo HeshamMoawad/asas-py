@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import Annotated, Any, Callable, Optional
 
 import pytest
@@ -10,7 +11,7 @@ from pydantic import BaseModel
 from asas import AsasClient, get
 from asas.core.models import Response
 from asas.endpoint import EndpointOptions, EndpointSpec
-from asas.params import Body, File, Form, Header, Location, Path, Query
+from asas.params import Body, Cookie, File, Form, Header, Location, Path, Query
 
 PATH, QUERY, BODY = Location.PATH, Location.QUERY, Location.BODY
 
@@ -76,6 +77,48 @@ def test_path_alias_matches_placeholder() -> None:
     spec = compile_("GET", "/users/{userId}", f_alias)
     assert spec.params[0].wire_name == "userId"
     assert spec.params[0].location is Location.PATH
+
+
+def _with_hints(**hints: Any) -> Callable[..., Any]:
+    """An endpoint whose resolved hints are exactly ``hints`` (no interpreter
+    rewriting), with every parameter defaulting to ``None``."""
+
+    def f(self: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    params += [
+        inspect.Parameter(n, inspect.Parameter.KEYWORD_ONLY, default=None)
+        for n in hints
+    ]
+    f.__signature__ = inspect.Signature(params)  # type: ignore[attr-defined]
+    f.__annotations__ = {**hints, "return": Response}
+    return f
+
+
+def test_marker_found_in_optional_wrapped_annotated() -> None:
+    # Python 3.10's get_type_hints wraps ``= None`` params in Optional[...].
+    f = _with_hints(x_trace=Optional[Annotated[str | None, Header("X-Trace")]])
+    spec = compile_("GET", "/x", f)
+    p = spec.params[0]
+    assert p.location is Location.HEADER and p.wire_name == "X-Trace"
+    assert p.annotation == Optional[str]
+    request = spec.build_request("http://h", (), {"x_trace": "t"})
+    assert request.headers == {"X-Trace": "t"} and request.params is None
+
+
+def test_marker_found_in_outside_in_optional() -> None:
+    f = _with_hints(
+        expand=Optional[Annotated[str, Query(alias="x-expand")]],
+        sid=Optional[Annotated[str, Cookie()]],
+    )
+    spec = compile_("GET", "/x", f)
+    expand, sid = spec.params
+    assert expand.location is Location.QUERY and expand.wire_name == "x-expand"
+    assert sid.location is Location.COOKIE and sid.wire_name == "sid"
+    assert expand.annotation == Optional[str] and sid.annotation == Optional[str]
+    request = spec.build_request("http://h", (), {"expand": "e", "sid": "s"})
+    assert request.params == {"x-expand": "e"} and request.cookies == {"sid": "s"}
 
 
 def placeholder_without_param(self: Any) -> User:

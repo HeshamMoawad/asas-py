@@ -82,10 +82,24 @@ def _is_body_type(tp: Any) -> bool:
 
 
 def _split_annotated(hint: Any) -> tuple[Any, Optional[Param]]:
+    """Return ``(base type, marker)`` for a parameter hint.
+
+    The marker is found in a top-level ``Annotated[T, M]``, or in a union of
+    ``None`` and exactly one ``Annotated[T, M]`` member, which is unwrapped to
+    ``T | None``. That second form covers ``Annotated[T, M] | None`` and Python
+    3.10's ``get_type_hints``, which wraps parameters defaulting to ``None`` in
+    ``Optional[...]``.
+    """
     if get_origin(hint) is Annotated:
         base, *meta = get_args(hint)
         marker = next((m for m in meta if isinstance(m, Param)), None)
         return base, marker
+    if _is_union(hint):
+        members = [a for a in get_args(hint) if a is not _NONE_TYPE]
+        if len(members) == 1 and get_origin(members[0]) is Annotated:
+            base, marker = _split_annotated(members[0])
+            if marker is not None:
+                return Optional[base], marker
     return hint, None
 
 
