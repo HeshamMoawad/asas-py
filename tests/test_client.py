@@ -82,19 +82,21 @@ async def test_client_all_decorators() -> None:
 
 
 def test_httpx_engine_payload_types() -> None:
+    import httpx
+
     from asas.core.models import Request
     from asas.engines.httpx import _prepare_httpx_request
 
     # Test with raw data
     req_data = Request(method="POST", url="http://h", payload=Payload(data=b"raw"))
-    httpx_req = _prepare_httpx_request(req_data)
+    httpx_req = _prepare_httpx_request(httpx.Client(), req_data)
     assert httpx_req.content == b"raw"
 
     # Test with files
     req_files = Request(
         method="POST", url="http://h", payload=Payload(files={"f": b"c"})
     )
-    httpx_req = _prepare_httpx_request(req_files)
+    httpx_req = _prepare_httpx_request(httpx.Client(), req_files)
     assert "multipart/form-data" in httpx_req.headers["content-type"]
 
 

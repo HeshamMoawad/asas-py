@@ -133,3 +133,43 @@ def test_httpx_timeout_is_forwarded() -> None:
         mock.route().mock(side_effect=side_effect)
         HTTPXSyncEngine().send(Request("GET", f"{BASE}/x", timeout=2.5))
     assert captured[0].extensions["timeout"]["read"] == 2.5
+
+
+def _capture(engine: HTTPXSyncEngine, request: Request) -> httpx.Request:
+    with respx.mock() as mock:
+        route = mock.route().mock(return_value=HttpxResponse(200))
+        engine.send(request)
+        sent: httpx.Request = route.calls.last.request
+    return sent
+
+
+def test_client_default_headers_are_merged() -> None:
+    engine = HTTPXSyncEngine(headers={"X-Default": "1"})
+    sent = _capture(engine, Request("GET", f"{BASE}/x", headers={"X-Req": "2"}))
+    assert sent.headers["x-default"] == "1"
+    assert sent.headers["x-req"] == "2"
+
+
+def test_request_header_overrides_client_default() -> None:
+    engine = HTTPXSyncEngine(headers={"X-Same": "client"})
+    sent = _capture(engine, Request("GET", f"{BASE}/x", headers={"X-Same": "req"}))
+    assert sent.headers["x-same"] == "req"
+
+
+def test_client_default_timeout_applies() -> None:
+    engine = HTTPXSyncEngine(timeout=1.5)
+    sent = _capture(engine, Request("GET", f"{BASE}/x", timeout=None))
+    assert sent.extensions["timeout"]["read"] == 1.5
+
+
+@pytest.mark.asyncio
+async def test_async_client_defaults_are_merged() -> None:
+    engine = HTTPXAsyncEngine(headers={"X-Default": "1", "X-Same": "c"}, timeout=1.5)
+    with respx.mock() as mock:
+        route = mock.route().mock(return_value=HttpxResponse(200))
+        await engine.asend(Request("GET", f"{BASE}/x", headers={"X-Same": "r"}))
+        sent = route.calls.last.request
+    assert sent.headers["x-default"] == "1"
+    assert sent.headers["x-same"] == "r"
+    assert sent.extensions["timeout"]["read"] == 1.5
+    await engine.aclose()

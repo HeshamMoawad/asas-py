@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, Optional
 
 import httpx
@@ -22,7 +24,7 @@ class HTTPXSyncEngine:
         return self._client
 
     def _prepare_httpx_request(self, request: Request) -> httpx.Request:
-        return _prepare_httpx_request(request)
+        return _prepare_httpx_request(self.client, request)
 
     def _from_httpx_response(self, response: httpx.Response) -> Response:
         return _from_httpx_response(response)
@@ -57,7 +59,7 @@ class HTTPXAsyncEngine:
         return self._client
 
     def _prepare_httpx_request(self, request: Request) -> httpx.Request:
-        return _prepare_httpx_request(request)
+        return _prepare_httpx_request(self.client, request)
 
     def _from_httpx_response(self, response: httpx.Response) -> Response:
         return _from_httpx_response(response)
@@ -76,14 +78,17 @@ class HTTPXAsyncEngine:
             self._client = None
 
 
-def _prepare_httpx_request(request: Request) -> httpx.Request:
+def _prepare_httpx_request(
+    client: httpx.Client | httpx.AsyncClient, request: Request
+) -> httpx.Request:
+    """Build via the client so its default headers/timeout/cookies/params merge."""
     payload = request.payload
     data = payload.data if payload else None
-    extensions = {}
+    extra: dict[str, Any] = {}
     if request.timeout is not None:
-        extensions["timeout"] = httpx.Timeout(request.timeout).as_dict()
+        extra["timeout"] = request.timeout
 
-    return httpx.Request(
+    return client.build_request(
         method=request.method,
         url=request.url,
         params=request.params,
@@ -93,7 +98,7 @@ def _prepare_httpx_request(request: Request) -> httpx.Request:
         data=data if isinstance(data, dict) else None,
         json=payload.json if payload else None,
         files=payload.files if payload else None,
-        extensions=extensions,
+        **extra,
     )
 
 
