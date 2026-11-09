@@ -15,6 +15,7 @@ from asas import (
     BearerAuth,
     CursorPaginator,
     Hooks,
+    InternalServerError,
     LinkHeaderPaginator,
     NotFoundError,
     OffsetPaginator,
@@ -521,4 +522,97 @@ async def test_crud_id_is_percent_encoded_async() -> None:
         for call in _crud_calls(client.users):
             await call()
         assert [str(c.request.url) for c in route.calls] == [ENCODED_URL] * 3
+    await client.engine.aclose()
+
+
+# --- Pagination end on 404 ----------------------------------------------------
+
+
+class DrfUsers(AsasResource[User]):
+    path = "/users"
+    paginator = PageNumberPaginator(size_param="page_size", page_size=2)
+
+
+class AsyncDrfUsers(AsasAsyncResource[User]):
+    path = "/users"
+    paginator = PageNumberPaginator(size_param="page_size", page_size=2)
+
+
+class DrfClient(AsasClient):
+    users = DrfUsers()
+
+
+class AsyncDrfClient(AsasAsyncClient):
+    users = AsyncDrfUsers()
+
+
+FULL_PAGE = {"results": [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}]}
+
+
+def _invalid_page() -> HttpxResponse:
+    return HttpxResponse(404, json={"detail": "Invalid page."})
+
+
+def _drf_route(mock: Any, *responses: HttpxResponse) -> Any:
+    return mock.get("/users").mock(side_effect=list(responses))
+
+
+def test_404_past_last_page_ends_iteration() -> None:
+    errors: list = []
+    client = DrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        route = _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), _invalid_page())
+        assert [u.id for u in client.users] == [1, 2]
+        assert route.call_count == 2
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_404_past_last_page_ends_iteration_async() -> None:
+    errors: list = []
+    client = AsyncDrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        route = _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), _invalid_page())
+        assert [u.id async for u in client.users] == [1, 2]
+        assert route.call_count == 2
+    assert errors == []
+    await client.engine.aclose()
+
+
+def test_404_on_first_page_raises() -> None:
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, _invalid_page())
+        with pytest.raises(NotFoundError):
+            list(DrfClient(base_url=BASE).users)
+
+
+@pytest.mark.asyncio
+async def test_404_on_first_page_raises_async() -> None:
+    client = AsyncDrfClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, _invalid_page())
+        with pytest.raises(NotFoundError):
+            [u async for u in client.users]
+    await client.engine.aclose()
+
+
+def test_server_error_on_later_page_raises() -> None:
+    errors: list = []
+    client = DrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), HttpxResponse(500))
+        with pytest.raises(InternalServerError):
+            list(client.users)
+    assert len(errors) == 1
+
+
+@pytest.mark.asyncio
+async def test_server_error_on_later_page_raises_async() -> None:
+    errors: list = []
+    client = AsyncDrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), HttpxResponse(500))
+        with pytest.raises(InternalServerError):
+            [u async for u in client.users]
+    assert len(errors) == 1
     await client.engine.aclose()

@@ -47,6 +47,8 @@ from asas.hooks import Hooks
 from asas.pagination import PageNumberPaginator, PageRequest, Paginator
 
 T = TypeVar("T", bound="BaseResource")
+#: Status that ends iteration when returned for any page after the first.
+_PAST_LAST_PAGE = 404
 ModelT = TypeVar("ModelT")
 
 
@@ -227,6 +229,12 @@ class BaseResource:
     def _parse_page_with_response(self, response: Response) -> Tuple[Response, Any]:
         return response, self._parse_page(response)
 
+    def _parse_later_page(self, response: Response) -> Optional[Tuple[Response, Any]]:
+        """Parse a page after the first; ``None`` (a 404) means past the last page."""
+        if response.status_code == _PAST_LAST_PAGE:
+            return None
+        return self._parse_page_with_response(response)
+
 
 class AsasResource(BaseResource, Generic[ModelT]):
     """Synchronous resource. Use on subclasses of :class:`~asas.AsasClient`."""
@@ -284,13 +292,19 @@ class AsasResource(BaseResource, Generic[ModelT]):
         self._require_path()
         paginator = self._resolve_paginator()
         page: Optional[PageRequest] = paginator.first_page(params)
+        first = True
         while page is not None:
             current = page
-            response, items = execute_sync(
+            result = execute_sync(
                 self,
                 lambda: self._build_page(current),
-                self._parse_page_with_response,
+                self._parse_page_with_response if first else self._parse_later_page,
+                allow_status=() if first else (_PAST_LAST_PAGE,),
             )
+            if result is None:
+                return
+            response, items = result
+            first = False
             for item in items:
                 yield item
             page = paginator.next_page(response, current)
@@ -355,13 +369,19 @@ class AsasAsyncResource(BaseResource, Generic[ModelT]):
         self._require_path()
         paginator = self._resolve_paginator()
         page: Optional[PageRequest] = paginator.first_page(params)
+        first = True
         while page is not None:
             current = page
-            response, items = await execute_async(
+            result = await execute_async(
                 self,
                 lambda: self._build_page(current),
-                self._parse_page_with_response,
+                self._parse_page_with_response if first else self._parse_later_page,
+                allow_status=() if first else (_PAST_LAST_PAGE,),
             )
+            if result is None:
+                return
+            response, items = result
+            first = False
             for item in items:
                 yield item
             page = paginator.next_page(response, current)

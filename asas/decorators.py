@@ -13,7 +13,17 @@ the pipeline are passed to the ``on_error`` hooks, then re-raised unchanged.
 
 import functools
 import inspect
-from typing import Any, Callable, Mapping, Optional, Protocol, Tuple, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Mapping,
+    Optional,
+    Protocol,
+    Tuple,
+    TypeVar,
+    cast,
+)
 
 from asas.auth import ChallengeResponseAuth, RefreshableAuth
 from asas.core.models import Request, Response
@@ -79,9 +89,11 @@ def _finish(
     parse: Callable[[Response], T],
     raise_for_status: bool,
     hooks: Hooks,
+    allow_status: Collection[int],
 ) -> T:
+    status = response.status_code
     try:
-        if raise_for_status and not 200 <= response.status_code < 300:
+        if raise_for_status and not 200 <= status < 300 and status not in allow_status:
             raise error_for_response(request, response)
         return parse(response)
     except (HTTPStatusError, ResponseValidationError) as exc:
@@ -106,12 +118,14 @@ def execute_sync(
     use_auth: bool = True,
     raise_for_status: Optional[bool] = None,
     hooks: Optional[Hooks] = None,
+    allow_status: Collection[int] = (),
 ) -> T:
     """Run the request pipeline synchronously.
 
     ``owner`` provides ``engine``, ``auth``, ``hooks`` and ``raise_for_status``.
     ``build`` returns a fresh, unauthenticated :class:`Request` on each call so a
-    retry picks up refreshed credentials.
+    retry picks up refreshed credentials. Responses whose status is in
+    ``allow_status`` skip the status check and go straight to ``parse``.
     """
     _ensure_engine_capability(owner.engine, "send")
     effective_raise, effective_hooks = _resolve(owner, raise_for_status, hooks)
@@ -135,7 +149,9 @@ def execute_sync(
             retry = True
         if retry:
             request, response = send()
-    return _finish(request, response, parse, effective_raise, effective_hooks)
+    return _finish(
+        request, response, parse, effective_raise, effective_hooks, allow_status
+    )
 
 
 async def execute_async(
@@ -146,6 +162,7 @@ async def execute_async(
     use_auth: bool = True,
     raise_for_status: Optional[bool] = None,
     hooks: Optional[Hooks] = None,
+    allow_status: Collection[int] = (),
 ) -> T:
     """Asynchronous counterpart of :func:`execute_sync`."""
     _ensure_engine_capability(owner.engine, "asend")
@@ -170,7 +187,9 @@ async def execute_async(
             retry = True
         if retry:
             request, response = await send()
-    return _finish(request, response, parse, effective_raise, effective_hooks)
+    return _finish(
+        request, response, parse, effective_raise, effective_hooks, allow_status
+    )
 
 
 # -- decorators -----------------------------------------------------------------
