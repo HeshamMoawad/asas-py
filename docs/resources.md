@@ -65,7 +65,8 @@ client.users.delete(user.id)
 
 `create` and `update` accept a Pydantic model (sent as the JSON body, dumped JSON-safe and by
 alias); responses are validated into the model. Without a model, results come back as raw
-JSON. `delete` returns `None` and raises on a non-2xx response.
+JSON. `delete` returns `None` and raises on a non-2xx response. The `id` is percent-encoded
+as a single path segment, so `get("a/b")` requests `/users/a%2Fb`.
 
 CRUD and pagination requests run through the same pipeline as decorated endpoints, so they
 raise [typed errors](errors.md) and fire the client's [hooks](hooks.md). If a record or a page
@@ -121,6 +122,12 @@ Use `iterate(**params)` to pass query parameters into the iteration:
 for user in client.users.iterate(active=True):
     ...
 ```
+
+Iteration stops when the paginator finds no next page. It also stops when a page **after the
+first** answers `404`, which is how DRF and similar APIs reply to a page past the end. That
+`404` ends iteration quietly: nothing is raised and `on_error` hooks are not called. A `404` on
+the first page still raises [`NotFoundError`](errors.md), and any other non-2xx status on any
+page raises as usual.
 
 ## Pagination styles
 

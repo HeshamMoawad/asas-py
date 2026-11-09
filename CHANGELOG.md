@@ -18,6 +18,8 @@ A breaking release. See the [migration guide](docs/migration-0.2.md).
 - `response_model=` is removed; use the return annotation.
 - Non-2xx responses raise a typed `HTTPStatusError` subclass by default
   (`raise_for_status` on the client or endpoint; `-> Response` endpoints never raise).
+  Resource iteration is the exception: a `404` on a page after the first ends iteration
+  without raising or calling `on_error`, as DRF and similar APIs answer `404` past the end.
 - Parameter routing is decided from annotations, not runtime values; unannotated `dict`
   parameters now go to the JSON body instead of the query string, and every parameter needs
   an annotation.
@@ -54,7 +56,7 @@ A breaking release. See the [migration guide](docs/migration-0.2.md).
 
 ### Fixed
 
-- Path values are percent-encoded.
+- Path values and resource ids (`get` / `update` / `delete`) are percent-encoded.
 - Request bodies are dumped JSON-safe and by alias (`datetime`, `UUID`, `Decimal`, enums).
 - The httpx engine honours per-request timeouts, and applies client defaults:
   `AsasClient(headers=..., timeout=...)` engine kwargs were previously silently dropped.

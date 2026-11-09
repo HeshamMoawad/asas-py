@@ -97,6 +97,10 @@ A missing return annotation is a `TypeError`.
 Opt out per client with `AsasClient(raise_for_status=False)`, per endpoint with
 `@get(..., raise_for_status=False)`, or by returning `Response`. See [Errors](errors.md).
 
+Resource iteration is the exception: a `404` on a page after the first ends iteration without
+raising, as in 0.1, because DRF and similar APIs answer `404` past the last page. See
+[Lazy iteration](resources.md#lazy-iteration-over-every-record).
+
 ## 4. Parameter routing comes from annotations
 
 Routing is decided from the annotations at decoration time, not from the runtime values.
@@ -228,7 +232,8 @@ See [the engine contract](engines.md#the-engine-contract).
 
 ## Smaller fixes you get for free
 
-- Path values are percent-encoded (`quote(str(v), safe="")`).
+- Path values are percent-encoded (`quote(str(v), safe="")`), and so are resource ids in
+  `get` / `update` / `delete`.
 - Request bodies are dumped JSON-safe and by alias (`datetime`, `UUID`, `Decimal`, enums).
 - The default engine applies client defaults: `AsasClient(headers=..., timeout=...)` now takes
   effect. Previously these were silently dropped.
