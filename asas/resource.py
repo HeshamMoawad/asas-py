@@ -27,6 +27,7 @@ from pydantic import BaseModel
 
 from asas.core.models import Payload, Request, Response
 from asas.decorators import execute_async, execute_sync
+from asas.hooks import Hooks
 from asas.pagination import PageNumberPaginator, PageRequest, Paginator
 
 T = TypeVar("T", bound="BaseResource")
@@ -113,6 +114,14 @@ class BaseResource:
     def auth(self) -> Any:
         return self._client.auth
 
+    @property
+    def hooks(self) -> Hooks:
+        return self._client.hooks  # type: ignore[no-any-return]
+
+    @property
+    def raise_for_status(self) -> bool:
+        return self._client.raise_for_status  # type: ignore[no-any-return]
+
     # -- helpers ------------------------------------------------------------
 
     def _require_path(self) -> None:
@@ -154,32 +163,26 @@ class BaseResource:
         params: Optional[Dict[str, Any]] = None,
         body: Any = None,
     ) -> Request:
-        request = Request(
+        return Request(
             method=method,
             url=_join(self.base_url, path),
             params=params or {},
             payload=_payload(body),
         )
-        auth = self.auth
-        if auth is not None:
-            request = auth.apply(request)
-        return request
 
     def _build_page(self, page: PageRequest) -> Request:
         if page.url is not None:
-            request = Request(method="GET", url=page.url, params={}, payload=None)
-        else:
-            self._require_path()
-            request = Request(
-                method="GET",
-                url=_join(self.base_url, self.path),
-                params=dict(page.params),
-                payload=None,
-            )
-        auth = self.auth
-        if auth is not None:
-            request = auth.apply(request)
-        return request
+            return Request(method="GET", url=page.url, params={}, payload=None)
+        self._require_path()
+        return Request(
+            method="GET",
+            url=_join(self.base_url, self.path),
+            params=dict(page.params),
+            payload=None,
+        )
+
+    def _parse_page(self, response: Response) -> Any:
+        return self._parse_items(self._resolve_paginator().extract_items(response))
 
 
 class AsasResource(BaseResource):
@@ -188,35 +191,38 @@ class AsasResource(BaseResource):
     def list(self, **params: Any) -> Any:
         """Fetch a single page of records (no pagination)."""
         self._require_path()
-        response = execute_sync(self, lambda: self._build("GET", self.path, params))
-        items = self._resolve_paginator().extract_items(response)
-        return self._parse_items(items)
+        return execute_sync(
+            self, lambda: self._build("GET", self.path, params), self._parse_page
+        )
 
     def get(self, id: Any) -> Any:
         """Fetch one record by id."""
         self._require_path()
-        response = execute_sync(self, lambda: self._build("GET", f"{self.path}/{id}"))
-        return self._parse_one(response)
+        return execute_sync(
+            self, lambda: self._build("GET", f"{self.path}/{id}"), self._parse_one
+        )
 
     def create(self, obj: Any) -> Any:
         """Create a record from a Pydantic model (or dict)."""
         self._require_path()
-        response = execute_sync(self, lambda: self._build("POST", self.path, body=obj))
-        return self._parse_one(response)
+        return execute_sync(
+            self, lambda: self._build("POST", self.path, body=obj), self._parse_one
+        )
 
     def update(self, id: Any, obj: Any) -> Any:
         """Replace a record by id (``PUT``)."""
         self._require_path()
-        response = execute_sync(
-            self, lambda: self._build("PUT", f"{self.path}/{id}", body=obj)
+        return execute_sync(
+            self,
+            lambda: self._build("PUT", f"{self.path}/{id}", body=obj),
+            self._parse_one,
         )
-        return self._parse_one(response)
 
     def delete(self, id: Any) -> Response:
         """Delete a record by id; returns the raw :class:`Response`."""
         self._require_path()
-        return execute_sync(  # type: ignore[no-any-return]
-            self, lambda: self._build("DELETE", f"{self.path}/{id}")
+        return execute_sync(
+            self, lambda: self._build("DELETE", f"{self.path}/{id}"), lambda r: r
         )
 
     def iterate(self, **params: Any) -> Iterator[Any]:
@@ -227,7 +233,9 @@ class AsasResource(BaseResource):
         page: Optional[PageRequest] = paginator.first_page(params)
         while page is not None:
             current = page
-            response = execute_sync(self, lambda: self._build_page(current))
+            response = execute_sync(
+                self, lambda: self._build_page(current), lambda r: r
+            )
             for item in paginator.extract_items(response):
                 yield adapter.validate_python(item) if adapter else item
             page = paginator.next_page(response, current)
@@ -242,41 +250,38 @@ class AsasAsyncResource(BaseResource):
     async def list(self, **params: Any) -> Any:
         """Fetch a single page of records (no pagination)."""
         self._require_path()
-        response = await execute_async(
-            self, lambda: self._build("GET", self.path, params)
+        return await execute_async(
+            self, lambda: self._build("GET", self.path, params), self._parse_page
         )
-        items = self._resolve_paginator().extract_items(response)
-        return self._parse_items(items)
 
     async def get(self, id: Any) -> Any:
         """Fetch one record by id."""
         self._require_path()
-        response = await execute_async(
-            self, lambda: self._build("GET", f"{self.path}/{id}")
+        return await execute_async(
+            self, lambda: self._build("GET", f"{self.path}/{id}"), self._parse_one
         )
-        return self._parse_one(response)
 
     async def create(self, obj: Any) -> Any:
         """Create a record from a Pydantic model (or dict)."""
         self._require_path()
-        response = await execute_async(
-            self, lambda: self._build("POST", self.path, body=obj)
+        return await execute_async(
+            self, lambda: self._build("POST", self.path, body=obj), self._parse_one
         )
-        return self._parse_one(response)
 
     async def update(self, id: Any, obj: Any) -> Any:
         """Replace a record by id (``PUT``)."""
         self._require_path()
-        response = await execute_async(
-            self, lambda: self._build("PUT", f"{self.path}/{id}", body=obj)
+        return await execute_async(
+            self,
+            lambda: self._build("PUT", f"{self.path}/{id}", body=obj),
+            self._parse_one,
         )
-        return self._parse_one(response)
 
     async def delete(self, id: Any) -> Response:
         """Delete a record by id; returns the raw :class:`Response`."""
         self._require_path()
-        return await execute_async(  # type: ignore[no-any-return]
-            self, lambda: self._build("DELETE", f"{self.path}/{id}")
+        return await execute_async(
+            self, lambda: self._build("DELETE", f"{self.path}/{id}"), lambda r: r
         )
 
     async def iterate(self, **params: Any) -> AsyncIterator[Any]:
@@ -287,7 +292,9 @@ class AsasAsyncResource(BaseResource):
         page: Optional[PageRequest] = paginator.first_page(params)
         while page is not None:
             current = page
-            response = await execute_async(self, lambda: self._build_page(current))
+            response = await execute_async(
+                self, lambda: self._build_page(current), lambda r: r
+            )
             for item in paginator.extract_items(response):
                 yield adapter.validate_python(item) if adapter else item
             page = paginator.next_page(response, current)

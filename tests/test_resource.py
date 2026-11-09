@@ -36,9 +36,9 @@ class Users(AsasResource):
     path = "/users"
     model = User
 
-    @get("/users/{id}/roles", response_model=list[Role])
-    def roles(self, roles: list, id: int) -> list:
-        return roles
+    @get("/users/{id}/roles")
+    def roles(self, id: int) -> list[Role]:
+        raise NotImplementedError
 
 
 class StoreClient(AsasClient):

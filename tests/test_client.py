@@ -1,4 +1,4 @@
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 import pytest
 import respx
@@ -10,7 +10,6 @@ from asas import (
     HTTPXAsyncEngine,
     HTTPXSyncEngine,
     Payload,
-    Response,
     delete,
     get,
     patch,
@@ -21,30 +20,30 @@ from asas import (
 
 class MockSyncClient(AsasClient):
     @get("/test")
-    def get_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def get_test(self) -> Dict[str, Any]:
+        raise NotImplementedError
 
     @post("/test-post")
-    def post_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def post_test(self) -> Dict[str, Any]:
+        raise NotImplementedError
 
     @put("/test-put")
-    def put_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def put_test(self) -> Dict[str, Any]:
+        raise NotImplementedError
 
     @delete("/test-delete")
-    def delete_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def delete_test(self) -> Dict[str, Any]:
+        raise NotImplementedError
 
     @patch("/test-patch")
-    def patch_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def patch_test(self) -> Dict[str, Any]:
+        raise NotImplementedError
 
 
 class MockAsyncClient(AsasAsyncClient):
     @get("/test-async")
-    async def get_test_async(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    async def get_test_async(self) -> Dict[str, Any]:
+        raise NotImplementedError
 
 
 @pytest.mark.asyncio

@@ -16,8 +16,8 @@ from asas import (
 
 class AuthClient(AsasClient):
     @get("/protected")
-    def get_protected(self, response: Response) -> bool:
-        return response.status_code == 200
+    def get_protected(self) -> Response:
+        raise NotImplementedError
 
 
 def test_basic_auth() -> None:
@@ -28,7 +28,7 @@ def test_basic_auth() -> None:
         # Basic user:pass is dXNlcjpwYXNz
         route = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
 
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert route.called
         assert route.calls.last.request.headers["Authorization"] == "Basic dXNlcjpwYXNz"
 
@@ -40,7 +40,7 @@ def test_bearer_auth() -> None:
     with respx.mock(base_url="https://api.example.com") as respx_mock:
         route = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
 
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert route.called
         assert route.calls.last.request.headers["Authorization"] == "Bearer mytoken"
 
@@ -52,7 +52,7 @@ def test_api_key_header_auth() -> None:
     with respx.mock(base_url="https://api.example.com") as respx_mock:
         route = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
 
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert route.called
         assert route.calls.last.request.headers["X-Custom-Key"] == "secret-key"
 
@@ -67,7 +67,7 @@ def test_api_key_query_auth() -> None:
             return_value=HttpxResponse(200)
         )
 
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert route.called
 
 
@@ -86,7 +86,7 @@ def test_runtime_auth_update() -> None:
     with respx.mock(base_url="https://api.example.com") as respx_mock:
         # 1. No auth initially
         route1 = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert "Authorization" not in route1.calls.last.request.headers
 
         # 2. Update auth via setter
@@ -95,13 +95,13 @@ def test_runtime_auth_update() -> None:
         client.auth = BearerAuth("new-token")
 
         route2 = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert route2.calls.last.request.headers["Authorization"] == "Bearer new-token"
 
         # 3. Clear auth via setter
         client.auth = None
         route3 = respx_mock.get("/protected").mock(return_value=HttpxResponse(200))
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert "Authorization" not in route3.calls.last.request.headers
 
 

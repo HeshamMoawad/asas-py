@@ -31,6 +31,7 @@ from asas.errors import (
     UnauthorizedError,
     UnprocessableEntityError,
 )
+from asas.hooks import Hooks
 from asas.pagination import (
     CursorPaginator,
     LinkHeaderPaginator,
@@ -58,6 +59,7 @@ __all__ = [
     "put",
     "delete",
     "patch",
+    "Hooks",
     "Payload",
     "Request",
     "Response",

@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import Annotated, Any, Callable, Optional
 
 import pytest
+import respx
+from httpx import Response as HttpxResponse
 from pydantic import BaseModel
 
+from asas import AsasClient, get
 from asas.core.models import Response
 from asas.endpoint import EndpointOptions, EndpointSpec
 from asas.params import Body, File, Form, Header, Location, Path, Query
@@ -217,3 +220,50 @@ def f_var_kwargs(self: Any, **kwargs: int) -> User:
 def test_var_positional_and_keyword_rejected(func: Callable[..., Any]) -> None:
     with pytest.raises(TypeError, match=func.__qualname__):
         compile_("GET", "/x", func)
+
+
+# --- Decorator integration ---------------------------------------------------
+
+BASE = "https://api.example.com"
+
+
+def test_decorator_raises_type_error_at_class_definition() -> None:
+    with pytest.raises(TypeError, match="placeholder"):
+
+        class Bad(AsasClient):
+            @get("/x/{id}")
+            def broken(self) -> Response:
+                raise NotImplementedError
+
+
+class ForwardClient(AsasClient):
+    @get("/later")
+    def later(self) -> LaterResult:
+        raise NotImplementedError
+
+
+class LaterResult(BaseModel):
+    value: int
+
+
+def test_forward_reference_resolved_on_first_call() -> None:
+    client = ForwardClient(BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/later").mock(return_value=HttpxResponse(200, json={"value": 3}))
+        assert client.later() == LaterResult(value=3)
+        assert client.later() == LaterResult(value=3)
+
+
+def test_body_never_executes() -> None:
+    calls: list[int] = []
+
+    class Counting(AsasClient):
+        @get("/x")
+        def x(self) -> Response:
+            calls.append(1)
+            raise AssertionError("body must not run")
+
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/x").mock(return_value=HttpxResponse(200))
+        assert Counting(BASE).x().status_code == 200
+    assert calls == []

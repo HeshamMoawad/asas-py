@@ -131,8 +131,8 @@ def test_requests_engine_is_sync_only() -> None:
 async def test_async_client_with_requests_engine_raises_sync_only_error() -> None:
     class AsyncRequestsClient(AsasAsyncClient):
         @get("/protected")
-        async def get_protected(self, response: Response) -> Response:
-            return response
+        async def get_protected(self) -> Response:
+            raise NotImplementedError
 
     client = AsyncRequestsClient(
         base_url="https://api.example.com",

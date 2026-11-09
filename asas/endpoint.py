@@ -22,6 +22,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from asas.core.models import Payload, Request, Response
 from asas.errors import ResponseValidationError
+from asas.hooks import Hooks
 from asas.params import Body, Header, Location, Param, Path, Query
 
 ReturnKind = Literal["response", "none", "bytes", "str", "model"]
@@ -36,7 +37,7 @@ class EndpointOptions:
     timeout: Optional[float] = None
     use_auth: bool = True
     raise_for_status: Optional[bool] = None
-    hooks: Any = None  # tightened to ``Hooks | None`` once hooks exist
+    hooks: Optional[Hooks] = None
 
 
 @dataclass(frozen=True)

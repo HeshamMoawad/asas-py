@@ -7,14 +7,14 @@ from asas import AsasAsyncClient, AsasClient, RefreshingBearerAuth, Response, ge
 
 class RefreshClient(AsasClient):
     @get("/protected")
-    def get_protected(self, response: Response) -> bool:
-        return response.status_code == 200
+    def get_protected(self) -> Response:
+        raise NotImplementedError
 
 
 class AsyncRefreshClient(AsasAsyncClient):
     @get("/protected")
-    async def get_protected(self, response: Response) -> bool:
-        return response.status_code == 200
+    async def get_protected(self) -> Response:
+        raise NotImplementedError
 
 
 def test_sync_automatic_refresh() -> None:
@@ -33,7 +33,7 @@ def test_sync_automatic_refresh() -> None:
             ]
         )
 
-        assert client.get_protected() is True
+        assert client.get_protected().status_code == 200
         assert route1.call_count == 2
         assert route1.calls[0].request.headers["Authorization"] == "Bearer old-token"
         assert route1.calls[1].request.headers["Authorization"] == "Bearer new-token"
@@ -55,7 +55,7 @@ async def test_async_automatic_refresh() -> None:
             ]
         )
 
-        assert await client.get_protected() is True
+        assert (await client.get_protected()).status_code == 200
         assert route1.call_count == 2
         assert route1.calls[0].request.headers["Authorization"] == "Bearer old-token"
         assert (
@@ -77,5 +77,5 @@ def test_refresh_limit() -> None:
         route1 = respx_mock.get("/protected").mock(return_value=HttpxResponse(401))
 
         # Should return the 401 response after one retry
-        assert client.get_protected() is False
+        assert client.get_protected().status_code == 401
         assert route1.call_count == 2

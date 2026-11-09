@@ -1,8 +1,9 @@
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import Any, Generic, Optional, TypeVar
 
 from asas.auth import Auth
 from asas.core.engine import AsyncEngine, SyncEngine
 from asas.engines.httpx import HTTPXAsyncEngine, HTTPXSyncEngine
+from asas.hooks import Hooks
 
 E = TypeVar("E", SyncEngine, AsyncEngine)
 
@@ -16,11 +17,16 @@ class BaseAsasClient(Generic[E]):
         self,
         base_url: str,
         engine: E,
+        *,
         auth: Optional[Auth] = None,
+        hooks: Optional[Hooks] = None,
+        raise_for_status: bool = True,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.engine: E = engine
         self._auth = auth
+        self.hooks: Hooks = hooks if hooks is not None else Hooks()
+        self.raise_for_status = raise_for_status
 
     @property
     def auth(self) -> Optional[Auth]:
@@ -36,28 +42,52 @@ class BaseAsasClient(Generic[E]):
 class AsasClient(BaseAsasClient[SyncEngine]):
     """
     Synchronous API client.
+
+    Extra keyword arguments are forwarded to :class:`HTTPXSyncEngine` when no
+    ``engine`` is given.
     """
 
     def __init__(
         self,
         base_url: str = "",
+        *,
         engine: Optional[SyncEngine] = None,
         auth: Optional[Auth] = None,
-        **kwargs: Any,
+        hooks: Optional[Hooks] = None,
+        raise_for_status: bool = True,
+        **engine_kwargs: Any,
     ) -> None:
-        super().__init__(base_url, engine or HTTPXSyncEngine(**kwargs), auth=auth)
+        super().__init__(
+            base_url,
+            engine or HTTPXSyncEngine(**engine_kwargs),
+            auth=auth,
+            hooks=hooks,
+            raise_for_status=raise_for_status,
+        )
 
 
 class AsasAsyncClient(BaseAsasClient[AsyncEngine]):
     """
     Asynchronous API client.
+
+    Extra keyword arguments are forwarded to :class:`HTTPXAsyncEngine` when no
+    ``engine`` is given.
     """
 
     def __init__(
         self,
         base_url: str = "",
+        *,
         engine: Optional[AsyncEngine] = None,
         auth: Optional[Auth] = None,
-        **kwargs: Any,
+        hooks: Optional[Hooks] = None,
+        raise_for_status: bool = True,
+        **engine_kwargs: Any,
     ) -> None:
-        super().__init__(base_url, engine or HTTPXAsyncEngine(**kwargs), auth=auth)
+        super().__init__(
+            base_url,
+            engine or HTTPXAsyncEngine(**engine_kwargs),
+            auth=auth,
+            hooks=hooks,
+            raise_for_status=raise_for_status,
+        )

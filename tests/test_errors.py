@@ -1,9 +1,20 @@
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import pytest
+import respx
+from httpx import Response as HttpxResponse
+from pydantic import BaseModel
 
-from asas import Request, Response
+from asas import (
+    AsasAsyncClient,
+    AsasClient,
+    Hooks,
+    RefreshingBearerAuth,
+    Request,
+    Response,
+    get,
+)
 from asas.errors import (
     AsasError,
     BadRequestError,
@@ -116,3 +127,98 @@ def test_hierarchy_and_exports() -> None:
     ]:
         assert name in asas.__all__
         assert hasattr(asas, name)
+
+
+# --- Pipeline status handling (through decorated clients) ------------------
+
+BASE = "https://api.example.com"
+
+
+class User(BaseModel):
+    id: int
+
+
+class StatusClient(AsasClient):
+    @get("/u/{id}")
+    def user(self, id: int) -> User:
+        raise NotImplementedError
+
+    @get("/maybe/{id}")
+    def maybe_user(self, id: int) -> Optional[User]:
+        raise NotImplementedError
+
+    @get("/raw")
+    def raw(self) -> Response:
+        raise NotImplementedError
+
+    @get("/fire")
+    def fire(self) -> None:
+        raise NotImplementedError
+
+    @get("/strict", raise_for_status=True)
+    def strict(self) -> None:
+        raise NotImplementedError
+
+
+class AsyncStatusClient(AsasAsyncClient):
+    @get("/u/{id}")
+    async def user(self, id: int) -> User:
+        raise NotImplementedError
+
+
+def test_raises_not_found_by_default() -> None:
+    client = StatusClient(BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/u/1").mock(return_value=HttpxResponse(404))
+        with pytest.raises(NotFoundError) as exc:
+            client.user(1)
+    assert exc.value.request.url == f"{BASE}/u/1"
+
+
+@pytest.mark.asyncio
+async def test_raises_not_found_by_default_async() -> None:
+    client = AsyncStatusClient(BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/u/1").mock(return_value=HttpxResponse(404))
+        with pytest.raises(NotFoundError):
+            await client.user(1)
+    await client.engine.aclose()
+
+
+def test_optional_return_still_raises_on_404() -> None:
+    client = StatusClient(BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/maybe/1").mock(return_value=HttpxResponse(404))
+        with pytest.raises(NotFoundError):
+            client.maybe_user(1)
+
+
+def test_response_return_never_raises() -> None:
+    errors: List[AsasError] = []
+    client = StatusClient(BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/raw").mock(return_value=HttpxResponse(500))
+        result = client.raw()
+    assert isinstance(result, Response) and result.status_code == 500
+    assert errors == []
+
+
+def test_raise_for_status_resolution() -> None:
+    client = StatusClient(BASE, raise_for_status=False)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/fire").mock(return_value=HttpxResponse(500))
+        mock.get("/strict").mock(return_value=HttpxResponse(500))
+        assert client.fire() is None
+        with pytest.raises(ServerError):
+            client.strict()
+
+
+def test_status_error_raised_after_refresh_retry() -> None:
+    auth = RefreshingBearerAuth("old", refresh_callback=lambda: "new")
+    client = StatusClient(BASE, auth=auth)
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.get("/u/1").mock(return_value=HttpxResponse(401))
+        with pytest.raises(UnauthorizedError) as exc:
+            client.user(1)
+    assert route.call_count == 2
+    assert exc.value.request.headers["Authorization"] == "Bearer new"
