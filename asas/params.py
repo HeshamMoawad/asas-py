@@ -1,6 +1,6 @@
 """Parameter markers used inside ``Annotated[...]`` to route arguments."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import ClassVar, Optional
 
@@ -59,5 +59,6 @@ class File(Param):
 @dataclass(frozen=True, kw_only=True)
 class Body(Param):
     location: ClassVar[Location] = Location.BODY
+    alias: Optional[str] = field(default=None, init=False)
     exclude_unset: bool = False
     exclude_none: bool = False

@@ -21,6 +21,10 @@ def test_header_alias_positional_others_keyword_only() -> None:
 def test_body_options() -> None:
     b = Body(exclude_unset=True)
     assert b.exclude_unset and not b.exclude_none and b.alias is None
+    with pytest.raises(TypeError):
+        Body("x")  # type: ignore
+    with pytest.raises(TypeError):
+        Body(alias="x")  # type: ignore
 
 
 def test_markers_exported() -> None:
