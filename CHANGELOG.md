@@ -62,6 +62,12 @@ A breaking release. See the [migration guide](docs/migration-0.2.md).
   `AsasClient(headers=..., timeout=...)` engine kwargs were previously silently dropped.
 - `Payload.json` is typed `Any` instead of `Dict[str, Any]`.
 - Cookie-based API key auth sends a real cookie through the engines.
+- Parameter markers are found in `Annotated[T, M] | None`, and on Python 3.10, where
+  `get_type_hints` wraps parameters defaulting to `None` in `Optional[...]`. Such headers and
+  cookies were previously sent as query parameters.
+- `-> str | None` and `-> bytes | None` return the text or bytes, or `None` for an empty body,
+  instead of validating the body as JSON.
+- `RateLimitError.retry_after` is never negative, infinite or NaN.
 
 ## [0.1.0] - 2026-08-29
 
