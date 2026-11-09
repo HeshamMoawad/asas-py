@@ -1,66 +1,44 @@
+"""Request decorators and the shared send pipeline.
+
+Every request, whether from a decorated endpoint or a resource method, goes
+through :func:`execute_sync` / :func:`execute_async`::
+
+    build → auth.apply (if use_auth) → on_request* → engine.send → on_response*
+        → on a 401 challenge / refresh: rebuild and resend exactly once
+        → status check (HTTPStatusError) → parse (ResponseValidationError)
+
+``TransportError``, ``HTTPStatusError`` and ``ResponseValidationError`` raised by
+the pipeline are passed to the ``on_error`` hooks, then re-raised unchanged.
+"""
+
 import functools
 import inspect
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Mapping,
+    Optional,
+    Protocol,
+    Tuple,
+    TypeVar,
+    cast,
+)
 
-from pydantic import BaseModel
-
-from asas.core.models import Payload, Request
+from asas.auth import ChallengeResponseAuth, RefreshableAuth
+from asas.core.models import Request, Response
+from asas.endpoint import EndpointOptions, EndpointSpec
+from asas.errors import (
+    HTTPStatusError,
+    ResponseValidationError,
+    TransportError,
+    error_for_response,
+)
+from asas.hooks import Hooks
 from asas.refresh import evaluate_refresh
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-
-def _build_request(
-    method: str,
-    path: str,
-    sig: inspect.Signature,
-    base_url: str,
-    instance: Any,
-    args: tuple,
-    kwargs: Dict[str, Any],
-    use_auth: bool = True,
-) -> Request:
-    """Extracts parameters from function call and builds a Request object."""
-    bound_args = sig.bind_partial(instance, *args, **kwargs)
-    bound_args.apply_defaults()
-
-    actual_path = path
-    query_params: Dict[str, Any] = {}
-    json_data: Optional[Any] = None
-
-    for name, value in bound_args.arguments.items():
-        if name == "self":
-            continue
-
-        placeholder = f"{{{name}}}"
-        if placeholder in actual_path:
-            actual_path = actual_path.replace(placeholder, str(value))
-        elif isinstance(value, BaseModel):
-            json_data = value.model_dump()
-        elif isinstance(value, list) and all(isinstance(i, BaseModel) for i in value):
-            json_data = [i.model_dump() for i in value]
-        else:
-            if value is not None:
-                query_params[name] = value
-
-    url = f"{base_url}/{actual_path.lstrip('/')}"
-    payload = Payload(json=json_data) if json_data is not None else None
-    request = Request(method=method, url=url, params=query_params, payload=payload)
-
-    if use_auth and hasattr(instance, "auth") and instance.auth:
-        request = instance.auth.apply(request)
-
-    return request
-
-
-def _parse_response(response: Any, response_model: Optional[Any] = None) -> Any:
-    """Parses the response using Pydantic if a response_model is provided."""
-    if response_model:
-        from pydantic import TypeAdapter
-
-        adapter = TypeAdapter(response_model)
-        return adapter.validate_python(response.json())
-    return response
+T = TypeVar("T")
 
 
 def _ensure_engine_capability(engine: Any, method_name: str) -> None:
@@ -81,98 +59,224 @@ def _ensure_engine_capability(engine: Any, method_name: str) -> None:
         )
 
 
+# -- pipeline steps shared by the sync and async paths ------------------------
+
+
+def _prepare(
+    owner: Any, build: Callable[[], Request], hooks: Hooks, use_auth: bool
+) -> Request:
+    request = build()
+    if use_auth and owner.auth is not None:
+        request = owner.auth.apply(request)
+    return hooks.apply_request(request)
+
+
+def _challenge_handled(auth: Any, response: Response) -> bool:
+    return (
+        response.status_code == 401
+        and isinstance(auth, ChallengeResponseAuth)
+        and auth.handle_challenge(response)
+    )
+
+
+def _should_refresh(auth: Any, response: Response) -> bool:
+    return isinstance(auth, RefreshableAuth) and evaluate_refresh(auth, response)
+
+
+def _finish(
+    request: Request,
+    response: Response,
+    parse: Callable[[Response], T],
+    raise_for_status: bool,
+    hooks: Hooks,
+    allow_status: Collection[int],
+) -> T:
+    status = response.status_code
+    try:
+        if raise_for_status and not 200 <= status < 300 and status not in allow_status:
+            raise error_for_response(request, response)
+        return parse(response)
+    except (HTTPStatusError, ResponseValidationError) as exc:
+        hooks.notify_error(exc)
+        raise
+
+
+def _resolve(
+    owner: Any, raise_for_status: Optional[bool], hooks: Optional[Hooks]
+) -> Tuple[bool, Hooks]:
+    effective_raise = (
+        owner.raise_for_status if raise_for_status is None else raise_for_status
+    )
+    return effective_raise, owner.hooks.merged(hooks)
+
+
 def execute_sync(
-    instance: Any, build: Callable[[], Request], use_auth: bool = True
-) -> Any:
-    """Send a request synchronously, retrying once on a ``401``.
+    owner: Any,
+    build: Callable[[], Request],
+    parse: Callable[[Response], T],
+    *,
+    use_auth: bool = True,
+    raise_for_status: Optional[bool] = None,
+    hooks: Optional[Hooks] = None,
+    allow_status: Collection[int] = (),
+) -> T:
+    """Run the request pipeline synchronously.
 
-    ``build`` returns a fresh :class:`Request` each call so the retry re-applies
-    any refreshed credentials. Shared by the request decorators and resources so
-    the auth-retry behaviour stays identical everywhere.
+    ``owner`` provides ``engine``, ``auth``, ``hooks`` and ``raise_for_status``.
+    ``build`` returns a fresh, unauthenticated :class:`Request` on each call so a
+    retry picks up refreshed credentials. Responses whose status is in
+    ``allow_status`` skip the status check and go straight to ``parse``.
     """
-    from asas.auth import ChallengeResponseAuth, RefreshableAuth
+    _ensure_engine_capability(owner.engine, "send")
+    effective_raise, effective_hooks = _resolve(owner, raise_for_status, hooks)
 
-    _ensure_engine_capability(instance.engine, "send")
-    response = instance.engine.send(build())
+    def send() -> Tuple[Request, Response]:
+        request = _prepare(owner, build, effective_hooks, use_auth)
+        try:
+            response = owner.engine.send(request)
+        except TransportError as exc:
+            effective_hooks.notify_error(exc)
+            raise
+        effective_hooks.notify_response(request, response)
+        return request, response
 
+    request, response = send()
     if use_auth:
-        auth = getattr(instance, "auth", None)
-        retry = False
-        if response.status_code == 401 and isinstance(auth, ChallengeResponseAuth):
-            retry = auth.handle_challenge(response)
-        if (
-            not retry
-            and isinstance(auth, RefreshableAuth)
-            and evaluate_refresh(auth, response)
-        ):
+        auth = owner.auth
+        retry = _challenge_handled(auth, response)
+        if not retry and _should_refresh(auth, response):
             auth.refresh()
             retry = True
         if retry:
-            response = instance.engine.send(build())
-    return response
+            request, response = send()
+    return _finish(
+        request, response, parse, effective_raise, effective_hooks, allow_status
+    )
 
 
 async def execute_async(
-    instance: Any, build: Callable[[], Request], use_auth: bool = True
-) -> Any:
+    owner: Any,
+    build: Callable[[], Request],
+    parse: Callable[[Response], T],
+    *,
+    use_auth: bool = True,
+    raise_for_status: Optional[bool] = None,
+    hooks: Optional[Hooks] = None,
+    allow_status: Collection[int] = (),
+) -> T:
     """Asynchronous counterpart of :func:`execute_sync`."""
-    from asas.auth import ChallengeResponseAuth, RefreshableAuth
+    _ensure_engine_capability(owner.engine, "asend")
+    effective_raise, effective_hooks = _resolve(owner, raise_for_status, hooks)
 
-    _ensure_engine_capability(instance.engine, "asend")
-    response = await instance.engine.asend(build())
+    async def send() -> Tuple[Request, Response]:
+        request = _prepare(owner, build, effective_hooks, use_auth)
+        try:
+            response = await owner.engine.asend(request)
+        except TransportError as exc:
+            effective_hooks.notify_error(exc)
+            raise
+        effective_hooks.notify_response(request, response)
+        return request, response
 
+    request, response = await send()
     if use_auth:
-        auth = getattr(instance, "auth", None)
-        retry = False
-        if response.status_code == 401 and isinstance(auth, ChallengeResponseAuth):
-            retry = auth.handle_challenge(response)
-        if (
-            not retry
-            and isinstance(auth, RefreshableAuth)
-            and evaluate_refresh(auth, response)
-        ):
+        auth = owner.auth
+        retry = _challenge_handled(auth, response)
+        if not retry and _should_refresh(auth, response):
             await auth.arefresh()
             retry = True
         if retry:
-            response = await instance.engine.asend(build())
-    return response
+            request, response = await send()
+    return _finish(
+        request, response, parse, effective_raise, effective_hooks, allow_status
+    )
 
 
-def _make_request_decorator(method: str) -> Callable:
-    def decorator(
-        path: str, response_model: Optional[Any] = None, use_auth: bool = True
+# -- decorators -----------------------------------------------------------------
+
+
+class _RequestDecorator(Protocol):
+    def __call__(
+        self,
+        path: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        timeout: Optional[float] = None,
+        use_auth: bool = True,
+        raise_for_status: Optional[bool] = None,
+        hooks: Optional[Hooks] = None,
     ) -> Callable[[F], F]:
-        def wrapper(func: F) -> F:
-            is_async = inspect.iscoroutinefunction(func)
-            sig = inspect.signature(func)
+        ...
 
-            @functools.wraps(func)
-            async def async_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-                def build() -> Request:
-                    return _build_request(
-                        method, path, sig, self.base_url, self, args, kwargs, use_auth
+
+def _make_request_decorator(method: str) -> _RequestDecorator:
+    def decorator(
+        path: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        timeout: Optional[float] = None,
+        use_auth: bool = True,
+        raise_for_status: Optional[bool] = None,
+        hooks: Optional[Hooks] = None,
+    ) -> Callable[[F], F]:
+        options = EndpointOptions(
+            headers=headers,
+            timeout=timeout,
+            use_auth=use_auth,
+            raise_for_status=raise_for_status,
+            hooks=hooks,
+        )
+
+        def wrap(func: F) -> F:
+            compiled: Optional[EndpointSpec]
+            try:
+                compiled = EndpointSpec.compile(method, path, func, options)
+            except NameError:
+                compiled = None  # forward reference: compile on first call
+
+            def spec() -> EndpointSpec:
+                nonlocal compiled
+                if compiled is None:
+                    compiled = EndpointSpec.compile(method, path, func, options)
+                return compiled
+
+            def call(
+                self: Any, args: Tuple[Any, ...], kwargs: dict[str, Any]
+            ) -> Tuple[Callable[[], Request], EndpointSpec]:
+                s = spec()
+                return (lambda: s.build_request(self.base_url, args, kwargs)), s
+
+            if inspect.iscoroutinefunction(func):
+
+                @functools.wraps(func)
+                async def async_endpoint(self: Any, *args: Any, **kwargs: Any) -> Any:
+                    build, s = call(self, args, kwargs)
+                    return await execute_async(
+                        self,
+                        build,
+                        s.parse_response,
+                        use_auth=s.options.use_auth,
+                        raise_for_status=s.effective_raise_for_status,
+                        hooks=s.options.hooks,
                     )
 
-                response = await execute_async(self, build, use_auth)
-                parsed = _parse_response(response, response_model)
-                result = await func(self, parsed, *args, **kwargs)
-                return result if result is not None else parsed
+                return cast(F, async_endpoint)
 
             @functools.wraps(func)
-            def sync_inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-                def build() -> Request:
-                    return _build_request(
-                        method, path, sig, self.base_url, self, args, kwargs, use_auth
-                    )
+            def sync_endpoint(self: Any, *args: Any, **kwargs: Any) -> Any:
+                build, s = call(self, args, kwargs)
+                return execute_sync(
+                    self,
+                    build,
+                    s.parse_response,
+                    use_auth=s.options.use_auth,
+                    raise_for_status=s.effective_raise_for_status,
+                    hooks=s.options.hooks,
+                )
 
-                response = execute_sync(self, build, use_auth)
-                parsed = _parse_response(response, response_model)
-                result = func(self, parsed, *args, **kwargs)
-                return result if result is not None else parsed
+            return cast(F, sync_endpoint)
 
-            return async_inner if is_async else sync_inner  # type: ignore[return-value]
-
-        return wrapper
+        return wrap
 
     return decorator
 

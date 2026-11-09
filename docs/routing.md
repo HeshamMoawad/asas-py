@@ -1,4 +1,4 @@
-# Routing & Parameters
+# Routing
 
 Asas exposes one decorator per HTTP method. Each turns a method on your client into a typed
 endpoint.
@@ -14,116 +14,184 @@ endpoint.
 All five take the same arguments:
 
 ```python
-@get(path, response_model=None, use_auth=True)
+def get(
+    path, *, headers=None, timeout=None, use_auth=True, raise_for_status=None, hooks=None
+): ...
 ```
 
 - **`path`** — the endpoint path, appended to the client's `base_url`. May contain
   `{placeholder}` segments.
-- **`response_model`** — an optional Pydantic type used to validate the response. See
-  [Request Bodies & Responses](request-response.md).
+- **`headers`** — a mapping of headers sent with this endpoint only. See
+  [header precedence](parameters.md#header-precedence).
+- **`timeout`** — a per-request timeout in seconds. It is applied by the bundled `httpx` and
+  `requests` engines.
 - **`use_auth`** — set to `False` to skip the client's auth for this endpoint (see below).
+- **`raise_for_status`** — `True` or `False` to override the client's setting for this
+  endpoint; `None` (the default) inherits it. See [Errors](errors.md#when-errors-are-raised).
+- **`hooks`** — a [`Hooks`](hooks.md) instance that runs after the client's hooks.
 
-## The method signature convention
+`path` is the only positional argument; everything else is keyword-only. The `response_model`
+argument from 0.1 no longer exists — the return annotation replaces it.
 
-A decorated method receives the **parsed result as its first argument after `self`**, then
-its own parameters:
+## Declaring an endpoint
+
+The **return annotation** tells Asas how to parse the response, and the **parameters** tell it
+how to build the request. The method body is never executed, so the convention is to write
+`...` as the body:
 
 ```python
-@get("/users/{id}")
-def get_user(self, response: Response, id: int):
-    #              ^^^^^^^^^^^^^^^^^^  ^^^^^^^
-    #              injected by Asas   supplied by the caller
-    return response.json()
+from pydantic import BaseModel
+
+from asas import AsasClient, get
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
+class MyClient(AsasClient):
+    @get("/users/{id}")
+    def get_user(self, id: int) -> User: ...
+
+
+client = MyClient(base_url="https://api.example.com")
+user = client.get_user(1)       # GET /users/1  ->  User
 ```
 
-You never pass the first argument yourself — Asas injects it. Everything after it is part of
-your public method signature and is routed into the request.
+!!! note "Using mypy?"
+    mypy reports a body that is only `...` as `[empty-body]` ("Missing return statement").
+    Asas never runs the body, so turn that check off:
 
-## Parameter routing
+    ```toml
+    [tool.mypy]
+    disable_error_code = ["empty-body"]
+    ```
 
-When you call the method, Asas inspects each of your parameters and routes it **by name and
-type**:
+The decorators are typed so callers see the signature you wrote unchanged:
+`client.get_user(1)` is a `User` to mypy and to your IDE. No argument is injected, and nothing
+is passed to the method body.
+
+If you want to post-process a result, write an ordinary method that calls the endpoint, or use
+a [hook](hooks.md):
+
+```python
+class MyClient(AsasClient):
+    @get("/users/{id}")
+    def get_user(self, id: int) -> User: ...
+
+    def get_username(self, id: int) -> str:
+        return self.get_user(id).name
+```
+
+## Return annotations
+
+| Return annotation | Result |
+| --- | --- |
+| `Response` | the raw [`Response`](models.md#response); never raises on status |
+| `None` | `None`; the body is discarded |
+| `bytes` | `response.content` |
+| `str` | `response.text` |
+| any other type `T` | the body validated as `T` with a Pydantic `TypeAdapter` |
+
+With `-> bytes | None` or `-> str | None`, an empty body returns `None`.
+
+See [Request Bodies & Responses](request-response.md) for details, including empty bodies.
+A missing return annotation raises `TypeError` — use `-> Response` when you want the raw
+response.
+
+## How parameters are routed
+
+Every parameter is routed by a marker, or inferred from its annotation when you give none:
 
 | Parameter | Routed to |
 | --- | --- |
 | Name matches a `{placeholder}` in the path | Substituted into the URL |
-| A Pydantic `BaseModel` (or a list of them) | The JSON request body |
-| Anything else that isn't `None` | A query parameter |
+| Annotated as a `BaseModel`, `list[BaseModel]` or `dict` | The JSON request body |
+| Anything else | A query parameter |
 
 ```python
 from pydantic import BaseModel
-from asas import AsasClient, post, Response
+
+from asas import AsasClient, post
+
 
 class CreateUser(BaseModel):
     name: str
     email: str
 
+
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
+
+
 class MyClient(AsasClient):
     @post("/teams/{id}/users")
-    def create_user(self, response: Response, id: int, payload: CreateUser, team: str):
-        return response.json()
+    def create_user(self, id: int, payload: CreateUser, team: str) -> User: ...
+
 
 client = MyClient(base_url="https://api.example.com")
 client.create_user(
-    id=42,                                                  # -> URL path
-    payload=CreateUser(name="Ada", email="ada@x.com"),     # -> JSON body
-    team="core",                                            # -> query string
+    42,                                                  # -> URL path
+    CreateUser(name="Ada", email="ada@x.com"),           # -> JSON body
+    team="core",                                         # -> query string
 )
 # POST https://api.example.com/teams/42/users?team=core
 # body: {"name": "Ada", "email": "ada@x.com"}
 ```
 
-!!! warning "Bodies must be Pydantic models"
-    A plain `dict` is **not** treated as a body — it becomes query parameters. Wrap body
-    data in a `BaseModel` to send it as JSON. See
-    [Request Bodies & Responses](request-response.md).
+Routing is decided from the **annotations at decoration time**, not from the values you pass at
+call time. For headers, cookies, forms, files and aliases, use the markers described in
+[Parameters](parameters.md).
 
-A parameter whose value is `None` is dropped entirely, which makes optional query parameters
-easy:
+A parameter whose value is `None` is omitted from the query, headers, cookies and form, which
+makes optional parameters easy:
 
 ```python
-@get("/search")
-def search(self, response: Response, q: str, page: int = None):
-    return response.json()
+class SearchClient(AsasClient):
+    @get("/search")
+    def search(self, q: str, page: int | None = None) -> dict: ...
 
-client.search(q="asas")            # GET /search?q=asas
-client.search(q="asas", page=2)    # GET /search?q=asas&page=2
+
+client = SearchClient(base_url="https://api.example.com")
+client.search("asas")            # GET /search?q=asas
+client.search("asas", page=2)    # GET /search?q=asas&page=2
 ```
 
-## The return convention
+!!! note "Declaration mistakes fail early"
+    Mistakes such as a `{placeholder}` with no matching parameter, a missing annotation, or
+    `*args` / `**kwargs` on an endpoint raise `TypeError` when the class is defined. See
+    [Parameters](parameters.md#declaration-errors).
 
-The decorator inspects what your method body returns:
-
-- If the body returns `None` (e.g. it is empty, written just for typing), the decorator
-  returns the **parsed result** it injected.
-- If the body returns a value, **your value wins** — use this to post-process the result.
-
-=== "Empty body (return the parsed result)"
-
-    ```python
-    @get("/users/{id}", response_model=User)
-    def get_user(self, user: User, id: int) -> User:
-        ...        # body returns None -> Asas returns `user`
-    ```
-
-=== "Post-processing"
-
-    ```python
-    @get("/users/{id}")
-    def get_username(self, response: Response, id: int) -> str:
-        return response.json()["name"]   # your value is returned
-    ```
+!!! warning "Forward references are checked on the first call"
+    If the return or a parameter type is not defined yet when the endpoint is decorated (for
+    example a model declared further down the module, with string annotations), Asas defers
+    compilation to the **first call**. Declaration `TypeError`s for such an endpoint then
+    surface on that first call instead of at import. Define models at module level: models
+    created inside a function body cannot be resolved from string annotations.
 
 ## Sync and async, one decorator
 
 The same decorators work on both `def` and `async def` methods — Asas detects coroutine
-functions automatically and uses the engine's async path. There is nothing extra to import.
+functions automatically and uses the engine's async path. `async def ... -> User` returns a
+`User` when awaited.
 
 ```python
+from pydantic import BaseModel
+
+from asas import AsasAsyncClient, get
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
 class AsyncClient(AsasAsyncClient):
     @get("/users/{id}")
-    async def get_user(self, response: Response, id: int):
-        return response.json()
+    async def get_user(self, id: int) -> User: ...
 ```
 
 !!! note
@@ -136,10 +204,12 @@ Even when the client has a global auth strategy, you can disable it for specific
 endpoints with `use_auth=False`:
 
 ```python
+from asas import AsasClient, get
+
+
 class MyClient(AsasClient):
     @get("/public-data", use_auth=False)
-    def get_public(self, response: Response):
-        return response.json()
+    def get_public(self) -> dict: ...
 ```
 
 This is also what you use for the login endpoint that *produces* your token — see the

@@ -28,15 +28,33 @@
 عند استدعاء دالة مزخرفة، يتحقّق أساس من أن المحرّك يدعم الوضع الصحيح ويرفع `TypeError` واضحًا
 إذا استدعيت — مثلًا — نقطة نهاية `async def` على محرّك متزامن فقط.
 
+## عقد المحرّك
+
+أيًّا كانت المكتبة التي يغلّفها المحرّك، عليه اتباع قاعدتين:
+
+- **ارفع `TransportError`.** إذا لم ينتج الطلب أي استجابة (رفض اتصال، فشل DNS، انتهاء مهلة،
+  …)، فالتقط استثناء المكتبة وارفع `asas.TransportError(message, request)` مع `from` الاستثناء
+  الأصلي. يعتمد أساس و[الخطافات](hooks.md) والمستدعون على هذا النوع الواحد؛ وتسريب استثناء
+  مكتبة يكسر العقد. (يفعل المحرّكان المرفقان ذلك مع `httpx.TransportError` و
+  `requests.RequestException`.)
+- **أرسل `Request.cookies`.** `request.cookies` هو `dict[str, str]` يجب إرساله كوكيز. تكتب
+  استراتيجيات المصادقة مثل `APIKeyAuth` مع `APIKeyLocation.COOKIE` هناك بدلًا من بناء ترويسة
+  `Cookie` خام.
+
+وينبغي له أيضًا احترام `request.timeout` عند ضبطه، وإرسال `payload.data` (قاموس كحقول نموذج،
+و`bytes` كجسم خام) و`payload.json` و`payload.files`.
+
 ## محرّك httpx المرفق
 
 `HTTPXSyncEngine` و`HTTPXAsyncEngine` هما التطبيقان المرجعيان والافتراضيان عند عدم تمرير
-محرّك. ينشئان عميل `httpx` الأساسي بكسل (lazily) ويمرّران أي وسائط `**kwargs` للمُنشئ إليه.
+محرّك. ينشئان عميل `httpx` الأساسي بكسل (lazily) ويمرّران أي وسائط `**kwargs` للمُنشئ إليه. تُبنى الطلبات عبر عميل `httpx`، فتنطبق إعداداته
+الافتراضية (`headers` و`timeout` و`cookies` …)، ويتجاوز `timeout=` الخاص بنقطة النهاية
+القيمة الافتراضية للعميل.
 
 ```python
 from asas import AsasClient, HTTPXSyncEngine
 
-# هذان العميلان متكافئان:
+# These two clients are equivalent:
 client = AsasClient(base_url="https://api.example.com", timeout=10.0)
 client = AsasClient(
     base_url="https://api.example.com",
@@ -44,7 +62,8 @@ client = AsasClient(
 )
 ```
 
-تمرير المحرّك صراحةً مفيد عندما تريد مشاركة محرّك واحد بين عدّة عملاء أو ضبطه في مكان واحد.
+تمرير المحرّك صراحةً مفيد عندما تريد ضبطه في مكان واحد. وإن شاركت محرّكًا واحدًا بين عدّة
+عملاء، فتذكّر أن إغلاق أي عميل يغلق المحرّك — راجع [العملاء](clients.md).
 
 ## محرّك requests المرفق (إضافة اختيارية)
 
@@ -66,9 +85,11 @@ from asas.engines.requests import RequestsSyncEngine
 client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngine())
 ```
 
-ينشئ محاور `requests.Session` بتراخٍ ويعيد توجيه أي `**kwargs` إلى مُنشئه، تمامًا مثل محرّك
-`httpx`. وهو يدعم أيضًا أجسام JSON والبيانات الخام `data` والملفات `files` ووسائط الاستعلام
-والترويسات المخصّصة عبر [`Payload`](models.md) نفسه.
+ينشئ جلسة `requests.Session` بتراخٍ. وعلى خلاف محرّك `httpx` لا يأخذ وسائط في مُنشئه، لأن
+`requests.Session()` لا يقبل أيًّا منها. اضبط الجلسة عبر خصائصها بدلًا من ذلك، مثل
+`engine.session.headers.update({"X-App": "demo"})`. وهو يدعم أيضًا أجسام JSON والبيانات الخام
+`data` والملفات `files` ووسائط الاستعلام والكوكيز والترويسات المخصّصة عبر [`Payload`](models.md) نفسه (ويُرسَل `files` مع `data` معًا
+بوصفهما multipart)، ويرفع `TransportError` عند فشل `requests`.
 
 !!! warning "متزامن فقط"
     لا تدعم مكتبة `requests` غير المتزامن أصلاً، لذا فإن محرّك `requests` **متزامن فقط** —
@@ -80,12 +101,14 @@ client = AsasClient(base_url="https://api.example.com", engine=RequestsSyncEngin
 ## كتابة محرّك مخصّص
 
 لدعم طبقة نقل أخرى (`aiohttp`، `urllib`، بديل اختبار في الذاكرة، …)، طبّق البروتوكول
-وحوِّل من وإلى `asas.core.models`. لا شيء آخر في الإطار يحتاج إلى تغيير. (محرّك `requests`
-مرفق بالفعل — راجع [أعلاه](#محرك-requests-المرفق-إضافة-اختيارية)؛ لست بحاجة إلى كتابته
+وحوِّل من وإلى `asas.core.models`، واتبع عقد المحرّك أعلاه. لا شيء آخر في الإطار
+يحتاج إلى تغيير.
+(محرّك `requests` مرفق بالفعل — راجع [أعلاه](#محرك-requests-المرفق-إضافة-اختيارية)؛ لست بحاجة إلى كتابته
 بنفسك.)
 
 ```python
 import requests
+from asas import TransportError
 from asas.core.models import Request, Response
 
 class RequestsEngine:
@@ -94,13 +117,18 @@ class RequestsEngine:
 
     def send(self, request: Request) -> Response:
         payload = request.payload
-        resp = self.session.request(
-            method=request.method,
-            url=request.url,
-            params=request.params,
-            headers=request.headers,
-            json=payload.json if payload else None,
-        )
+        try:
+            resp = self.session.request(
+                method=request.method,
+                url=request.url,
+                params=request.params,
+                headers=request.headers,
+                cookies=request.cookies,
+                timeout=request.timeout,
+                json=payload.json if payload else None,
+            )
+        except requests.RequestException as exc:
+            raise TransportError(str(exc), request) from exc
         return Response(
             status_code=resp.status_code,
             headers=dict(resp.headers),

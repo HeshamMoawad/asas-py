@@ -168,9 +168,7 @@ class APIKeyAuth(Auth):
                 request.params = {}
             request.params[self.name] = self.key
         else:  # APIKeyLocation.COOKIE
-            cookie = f"{self.name}={self.key}"
-            existing = request.headers.get("Cookie")
-            request.headers["Cookie"] = f"{existing}; {cookie}" if existing else cookie
+            request.cookies[self.name] = self.key
         return request
 
 

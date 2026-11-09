@@ -28,7 +28,7 @@ test:
 	pytest --cov=asas tests/
 
 type-check:
-	mypy asas/
+	mypy asas/ tests/typing_check.py
 
 build:
 	python -m build

@@ -15,7 +15,6 @@ from asas import (
     CompositeAuth,
     NoAuth,
     RefreshingBearerAuth,
-    Response,
     get,
     refresh_on_json,
 )
@@ -23,8 +22,8 @@ from asas import (
 
 class ProtectedClient(AsasClient):
     @get("/protected")
-    def get_data(self, response: Response) -> Dict[str, Any]:
-        return response.json()  # type: ignore[no-any-return]
+    def get_data(self) -> Dict[str, Any]:
+        ...  # the return annotation drives parsing
 
 
 def main() -> None:

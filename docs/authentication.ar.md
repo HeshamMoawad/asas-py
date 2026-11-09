@@ -2,7 +2,7 @@
 
 المصادقة في أساس كائن استراتيجية صغير قابل للاستبدال. تمرّر واحدًا عبر `auth=` عند إنشاء
 العميل، فيُطبَّق على كل طلب (ما لم تنسحب نقطة نهاية عبر
-[`use_auth=False`](routing.md)).
+[`use_auth=False`](routing.md)). الوسيط `auth=` مفتاحي فقط.
 
 ```python
 from asas import AsasClient, BearerAuth
@@ -85,6 +85,8 @@ auth = BearerAuth("my-secret-token")
     # -> Cookie: session=secret-key
     ```
 
+    يُكتب المفتاح في `Request.cookies`، ويرسله المحرّك بوصفه كوكي.
+
 يحوي `APIKeyLocation` ثلاثة أعضاء: `HEADER` و`QUERY` و`COOKIE`. تمرير سلسلة موضع غير معروفة
 يرفع `ValueError`.
 
@@ -99,7 +101,7 @@ auth = BearerAuth("my-secret-token")
     from asas import AsasClient, RefreshingBearerAuth
 
     def fetch_new_token() -> str:
-        # نادِ خادم المصادقة هنا وأعد الرمز الجديد.
+        # Call your auth server here and return the fresh token.
         return "new-token"
 
     auth = RefreshingBearerAuth("initial-token", refresh_callback=fetch_new_token)
@@ -123,7 +125,8 @@ auth = BearerAuth("my-secret-token")
 
 !!! note "حدّ إعادة المحاولة"
     يحدث التجديد وإعادة المحاولة مرّة واحدة على الأكثر لكل نداء. وإذا عاد الطلب المُعاد بـ
-    `401` أيضًا، تُعاد تلك الاستجابة كما هي.
+    `401` أيضًا، فيُعامَل كأي استجابة أخرى: يُرفع `UnauthorizedError` (ما لم تُعد نقطة النهاية
+    `Response` أو يُعطَّل `raise_for_status`). راجع [الأخطاء](errors.md).
 
 ## تخصيص متى يحدث التجديد
 
@@ -148,7 +151,7 @@ auth = BearerAuth("my-secret-token")
     ```python
     from asas import RefreshingBearerAuth, refresh_on_keyword
 
-    # جدّد عندما يحوي جسم الاستجابة "token_expired" (حتى مع 200).
+    # Refresh when the response body contains "token_expired" (even on a 200).
     auth = RefreshingBearerAuth(
         "token",
         refresh_callback=get_new_token,
@@ -161,7 +164,7 @@ auth = BearerAuth("my-secret-token")
     ```python
     from asas import RefreshingBearerAuth, refresh_on_json
 
-    # جدّد عندما تردّ الواجهة 200 لكن الجسم يقول إن الرمز انتهى.
+    # Refresh when the API replies 200 but the body says the token expired.
     auth = RefreshingBearerAuth(
         "token",
         refresh_callback=get_new_token,
@@ -174,7 +177,7 @@ auth = BearerAuth("my-secret-token")
     ```python
     from asas import RefreshingBearerAuth, refresh_on_status
 
-    # بعض الواجهات تستخدم 419/440 لانتهاء الجلسة بدلًا من 401.
+    # Some APIs use 419/440 for an expired session instead of 401.
     auth = RefreshingBearerAuth(
         "token",
         refresh_callback=get_new_token,
@@ -201,7 +204,7 @@ auth = BearerAuth("my-secret-token")
 ```python
 class HeaderRefreshAuth(RefreshingBearerAuth):
     def should_refresh(self, response):
-        # أسماء ترويسات الاستجابة بأحرف صغيرة.
+        # Response header names are lowercased.
         return response.headers.get("x-token-expired") == "1"
 ```
 
@@ -222,7 +225,7 @@ auth = CompositeAuth(
     BearerAuth("token-abc"),
 )
 client = AsasClient(base_url="https://api.example.com", auth=auth)
-# -> X-API-Key: key-123  و  Authorization: Bearer token-abc
+# -> X-API-Key: key-123  AND  Authorization: Bearer token-abc
 ```
 
 يُفوَّض التجديد ومعالجة التحدّي إلى أي أعضاء يدعمونهما، لذا يظل `CompositeAuth` الذي يحوي

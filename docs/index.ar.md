@@ -37,51 +37,70 @@ pip install asas-py
 === "متزامن"
 
     ```python
-    from asas import AsasClient, get, Response
+    from pydantic import BaseModel
+
+    from asas import AsasClient, get
+
+    class User(BaseModel):
+        id: int
+        name: str
 
     class MyClient(AsasClient):
         @get("/users/{id}")
-        def get_user(self, response: Response, id: int):
-            return response.json()
+        def get_user(self, id: int) -> User: ...
 
-    client = MyClient(base_url="https://api.example.com")
-    user = client.get_user(id=1)
+    with MyClient(base_url="https://api.example.com") as client:
+        user = client.get_user(1)   # typed: User
     ```
 
 === "غير متزامن"
 
     ```python
-    from asas import AsasAsyncClient, get, Response
+    from pydantic import BaseModel
+
+    from asas import AsasAsyncClient, get
+
+    class User(BaseModel):
+        id: int
+        name: str
 
     class MyAsyncClient(AsasAsyncClient):
         @get("/users/{id}")
-        async def get_user(self, response: Response, id: int):
-            return response.json()
+        async def get_user(self, id: int) -> User: ...
 
-    async def main():
-        client = MyAsyncClient(base_url="https://api.example.com")
-        user = await client.get_user(id=1)
-        await client.engine.aclose()
+    async def main() -> None:
+        async with MyAsyncClient(base_url="https://api.example.com") as client:
+            user = await client.get_user(1)   # typed: User
     ```
 
-!!! tip "الوسيط الأول المُحقَن"
-    تستقبل الدالة المزخرفة النتيجة المُحلَّلة بوصفها **أول وسيط بعد `self`** (وهو `response`
-    أعلاه). أما الوسائط المتبقية — مثل `id` — فيُمرِّرها المستدعي ويُوجَّهها أساس إلى الطلب.
-    راجع [التوجيه والوسائط](routing.md).
+!!! tip "تعليق نوع القيمة المُعادة يقود كل شيء"
+    جسم الدالة **لا يُنفَّذ أبدًا** — اكتب `...`. يقرأ أساس **تعليق نوع
+    القيمة المُعادة** (`-> User`) ليحلّل الاستجابة ويتحقّق منها، و**الوسائط** ليبني الطلب.
+    ويرى المستدعون التوقيع الذي صرّحت به تمامًا، فتفهم أدوات فحص الأنواع ومحرّرات الكود
+    `client.get_user(1)`. راجع [التوجيه](routing.md) و[الوسائط](parameters.md).
+
+!!! info "تُرقّي من 0.1؟"
+    الإصدار 0.2 كاسر للتوافق. راجع [دليل الترقية](migration-0.2.md).
 
 ## أبرز المزايا
 
 - **[العملاء](clients.md)** — عملاء متزامنون وغير متزامنين بطبقة نقل قابلة للاستبدال ومصادقة
   قابلة للتغيير أثناء التشغيل.
-- **[التوجيه والوسائط](routing.md)** — `@get`/`@post`/`@put`/`@delete`/`@patch` مع توجيه
-  تلقائي للمسار والاستعلام والجسم.
+- **[التوجيه](routing.md)** — `@get`/`@post`/`@put`/`@delete`/`@patch`، ويقود تعليق نوع
+  القيمة المُعادة تحليل الاستجابة.
+- **[الوسائط](parameters.md)** — علامات `Path` و`Query` و`Header` و`Cookie` و`Body` و`Form`
+  و`File`، مع أسماء مستعارة واستنتاج عند حذفها.
 - **[أجسام الطلب والاستجابات](request-response.md)** — نماذج Pydantic تدخل، ونماذج مُتحقَّق
-  منها تخرج عبر `response_model`.
+  منها تخرج، مكتوبة الأنواع من تعليق القيمة المُعادة.
+- **[الأخطاء](errors.md)** — الاستجابات غير 2xx ترفع استثناءات مكتوبة الأنواع مثل
+  `NotFoundError` و`RateLimitError`.
+- **[الخطافات](hooks.md)** — راقب أو عدّل كل طلب واستجابة وخطأ.
 - **[الموارد والترقيم الصفحي](resources.md)** — عمليات CRUD قائمة على الاصطلاح وتكرار كسول
   على كل سجلّ، دون أي كود لحلقة الصفحات.
 - **[المصادقة](authentication.md)** — أساسية، وحاملة، ومفتاح API، وتجديد تلقائي،
   واستراتيجيات مركَّبة.
 - **[المحرّكات وطبقات النقل](engines.md)** — نواة مستقلّة عن النقل؛ و`httpx` هو المحرّك
   المرجعي المرفق، مع محرّك `requests` اختياري عبر إضافة.
+- **[الترقية إلى 0.2](migration-0.2.md)** — «قبل/بعد» لكل تغيير كاسر.
 - **[النماذج الأساسية](models.md)** — فئات بيانات `Request` / `Response` / `Payload` بسيطة
   تتحدّث بها كل الطبقات.

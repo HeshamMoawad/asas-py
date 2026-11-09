@@ -11,44 +11,69 @@ ready-made base classes.
 
 ## Defining a client
 
-Subclass the base that matches your code style and add decorated methods:
+Subclass the base that matches your code style and add decorated methods. Using the client as
+a context manager closes it for you:
 
 === "Synchronous"
 
     ```python
-    from asas import AsasClient, get, Response
+    from pydantic import BaseModel
+
+    from asas import AsasClient, get
+
+
+    class GitHubUser(BaseModel):
+        login: str
+        id: int
+
 
     class GitHubClient(AsasClient):
         @get("/users/{username}")
-        def get_user(self, response: Response, username: str):
-            return response.json()
+        def get_user(self, username: str) -> GitHubUser: ...
 
-    client = GitHubClient(base_url="https://api.github.com")
-    user = client.get_user(username="torvalds")
+
+    with GitHubClient(base_url="https://api.github.com") as client:
+        user = client.get_user("torvalds")
     ```
 
 === "Asynchronous"
 
     ```python
-    from asas import AsasAsyncClient, get, Response
+    from pydantic import BaseModel
+
+    from asas import AsasAsyncClient, get
+
+
+    class GitHubUser(BaseModel):
+        login: str
+        id: int
+
 
     class GitHubClient(AsasAsyncClient):
         @get("/users/{username}")
-        async def get_user(self, response: Response, username: str):
-            return response.json()
+        async def get_user(self, username: str) -> GitHubUser: ...
 
-    async def main():
-        client = GitHubClient(base_url="https://api.github.com")
-        user = await client.get_user(username="torvalds")
-        await client.engine.aclose()
+
+    async def main() -> None:
+        async with GitHubClient(base_url="https://api.github.com") as client:
+            user = await client.get_user("torvalds")
     ```
 
 ## Constructor arguments
 
-Both clients share the same signature:
+Both clients share the same signature. Everything after `base_url` is **keyword-only**:
 
 ```python
-AsasClient(base_url="", engine=None, auth=None, **kwargs)
+def __init__(
+    self,
+    base_url="",
+    *,
+    engine=None,
+    auth=None,
+    hooks=None,
+    raise_for_status=True,
+    **engine_kwargs,
+): ...
 ```
 
 - **`base_url`** — prefix joined with each decorated path. A trailing slash is stripped, so
@@ -56,7 +81,11 @@ AsasClient(base_url="", engine=None, auth=None, **kwargs)
 - **`engine`** — a transport implementing the engine protocol. Defaults to the bundled
   `httpx` engine. See [Engines & Transports](engines.md).
 - **`auth`** — an optional authentication strategy. See [Authentication](authentication.md).
-- **`**kwargs`** — any extra keyword arguments are forwarded to the underlying `httpx`
+- **`hooks`** — an optional [`Hooks`](hooks.md) instance. Also available as the public
+  attribute `client.hooks`.
+- **`raise_for_status`** — whether non-2xx responses raise a [typed error](errors.md).
+  Endpoints can override it. Default `True`.
+- **`**engine_kwargs`** — any extra keyword arguments are forwarded to the underlying `httpx`
   client constructor (when the default engine is used).
 
 ```python
@@ -68,8 +97,12 @@ client = GitHubClient(
 )
 ```
 
-!!! note "Custom engines ignore `**kwargs`"
-    The `**kwargs` passthrough only applies when Asas creates the default `httpx` engine.
+The default engine applies these client defaults to every request: the `headers`, `timeout`
+and so on you pass here take effect, and per-endpoint values (`timeout=`, `headers=`) are
+layered on top.
+
+!!! note "Custom engines ignore `**engine_kwargs`"
+    The passthrough only applies when Asas creates the default `httpx` engine.
     If you pass your own `engine=`, configure that engine directly instead.
 
 ## Swapping auth at runtime
@@ -78,42 +111,58 @@ client = GitHubClient(
 example, right after a login call returns a token:
 
 ```python
-from asas import AsasClient, BearerAuth, post, Response
+from asas import AsasClient, BearerAuth, post
 from pydantic import BaseModel
 
 class Credentials(BaseModel):
     username: str
     password: str
 
+class Token(BaseModel):
+    token: str
+
 class ApiClient(AsasClient):
     @post("/auth/login", use_auth=False)
-    def login(self, response: Response, credentials: Credentials):
-        return response.json()
+    def login(self, credentials: Credentials) -> Token: ...
 
 client = ApiClient(base_url="https://api.example.com")
 
 # 1. Authenticate without any auth header...
-data = client.login(credentials=Credentials(username="ada", password="secret"))
+data = client.login(Credentials(username="ada", password="secret"))
 
 # 2. ...then attach the returned token for every subsequent call.
-client.auth = BearerAuth(data["token"])
+client.auth = BearerAuth(data.token)
 ```
 
 Setting `client.auth = None` removes authentication entirely.
 
 ## Closing the client
 
-The transport keeps a connection pool open. Close it when you are done — especially for the
-async client, which must be awaited:
+The transport keeps a connection pool open. The simplest way to release it is a context
+manager, which closes the client on exit even if the block raises:
 
 === "Synchronous"
 
     ```python
-    client.engine.close()
+    with GitHubClient(base_url="https://api.github.com") as client:
+        client.get_user("torvalds")
+    # closed here
     ```
 
 === "Asynchronous"
 
     ```python
-    await client.engine.aclose()
+    async def main() -> None:
+        async with GitHubClient(base_url="https://api.github.com") as client:
+            await client.get_user("torvalds")
+        # closed here
     ```
+
+Without a context manager, call `client.close()` (sync) or `await client.aclose()` (async).
+
+!!! warning "Closing a client closes its engine"
+    The client always closes its engine, **even one you passed in**. If you share one engine
+    between several clients, closing any one of them closes it for all. In that case manage
+    the engine's lifetime yourself: close the engine directly (`engine.close()` /
+    `await engine.aclose()`) when the last client is done, and don't use the clients as
+    context managers.

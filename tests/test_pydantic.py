@@ -20,28 +20,27 @@ class User(BaseModel):
 
 
 class PydanticClient(AsasClient):
-    @get("/items/{item_id}", response_model=Item)
-    def get_item(self, item: Item, item_id: int) -> Item:
-        return item
+    @get("/items/{item_id}")
+    def get_item(self, item_id: int) -> Item:
+        ...
 
-    @get("/items", response_model=List[Item])
-    def list_items(self, items: List[Item]) -> List[Item]:
-        return items
+    @get("/items")
+    def list_items(self) -> List[Item]:
+        ...
 
-    @get("/search", response_model=List[Item])
-    def search_items(self, items: List[Item], q: str, limit: int = 10) -> List[Item]:
-        # Result is auto-returned if we don't return anything
-        return items
+    @get("/search")
+    def search_items(self, q: str, limit: int = 10) -> List[Item]:
+        ...
 
-    @post("/items", response_model=Item)
-    def create_item(self, item: Item, data: Item) -> Item:
-        return item
+    @post("/items")
+    def create_item(self, data: Item) -> Item:
+        ...
 
 
 class AsyncPydanticClient(AsasAsyncClient):
-    @get("/users/{user_id}", response_model=User)
-    async def get_user_async(self, user: User, user_id: int) -> User:
-        return user
+    @get("/users/{user_id}")
+    async def get_user_async(self, user_id: int) -> User:
+        ...
 
 
 def test_pydantic_sync_parse() -> None:

@@ -1,9 +1,9 @@
 # Resources & Pagination
 
 A **resource** groups the endpoints for one kind of record (users, orders, …) and attaches
-them to a client. Declare a `path` and an optional `model`, and you get the five CRUD
-operations **and** lazy pagination for free — while still being able to add custom endpoints
-with the usual decorators.
+them to a client. Declare a `path` and parametrize the resource with your model
+(`AsasResource[User]`), and you get the five CRUD operations **and** lazy pagination for
+free — while still being able to add custom endpoints with the usual decorators.
 
 ```python
 from pydantic import BaseModel
@@ -13,15 +13,32 @@ class User(BaseModel):
     id: int
     name: str
 
-class Users(AsasResource):
+class Users(AsasResource[User]):
     path = "/users"
-    model = User
 
 class MyClient(AsasClient):
     users = Users()          # attach the resource to the client
 
 client = MyClient(base_url="https://api.example.com")
-client.users.get(1)          # -> User(id=1, name="...")
+client.users.get(1)          # typed: User
+```
+
+## Typed results and model inference
+
+`AsasResource` is generic over its model, so type checkers know what every CRUD call returns:
+`client.users.get(1)` is a `User`, `client.users.list()` is a `list[User]`, and iterating
+yields `User`. Asas also reads the type argument at runtime: the `model` used for validation
+is **inferred** from `AsasResource[User]`, so you don't repeat it.
+
+- An explicit `model = ...` class attribute, or a `model=` constructor argument, overrides the
+  inferred one.
+- A bare `AsasResource` with no type argument and no `model` returns raw JSON.
+
+```python
+class Users(AsasResource[User]):
+    path = "/users"
+
+raw = AsasResource(path="/users")      # no model: raw JSON, typed as Any
 ```
 
 A resource is bound to its client on access, so it shares the client's `base_url`, `engine`,
@@ -29,15 +46,15 @@ and `auth` automatically — including [token refresh](authentication.md) on a `
 
 ## Generated CRUD
 
-With `path` and `model` set, a sync resource (`AsasResource`) exposes:
+With `path` set (and a model, inferred or explicit), a sync resource (`AsasResource`) exposes:
 
 | Method | Request | Returns |
 | --- | --- | --- |
-| `list(**params)` | `GET /users` | `list[model]` (one page) |
-| `get(id)` | `GET /users/{id}` | `model` |
-| `create(obj)` | `POST /users` | `model` |
-| `update(id, obj)` | `PUT /users/{id}` | `model` |
-| `delete(id)` | `DELETE /users/{id}` | `Response` |
+| `list(**params)` | `GET /users` | `list[User]` (one page) |
+| `get(id)` | `GET /users/{id}` | `User` |
+| `create(obj)` | `POST /users` | `User` |
+| `update(id, obj)` | `PUT /users/{id}` | `User` |
+| `delete(id)` | `DELETE /users/{id}` | `None` |
 
 ```python
 client.users.list(active=True)               # GET /users?active=True
@@ -46,8 +63,15 @@ user = client.users.update(user.id, user)
 client.users.delete(user.id)
 ```
 
-`create` and `update` accept a Pydantic model (sent as the JSON body); responses are
-validated into `model`. If you omit `model`, results come back as raw JSON.
+`create` and `update` accept a Pydantic model (sent as the JSON body, dumped JSON-safe and by
+alias); responses are validated into the model. Without a model, results come back as raw
+JSON. `delete` returns `None` and raises on a non-2xx response. The `id` is percent-encoded
+as a single path segment, so `get("a/b")` requests `/users/a%2Fb`.
+
+CRUD and pagination requests run through the same pipeline as decorated endpoints, so they
+raise [typed errors](errors.md) and fire the client's [hooks](hooks.md). If a record or a page
+fails validation, the resource raises
+[`ResponseValidationError`](errors.md), not a raw Pydantic `ValidationError`.
 
 !!! note "`path` is required for CRUD"
     Calling a CRUD method or iterating without a `path` raises a clear `ValueError`. A
@@ -56,20 +80,21 @@ validated into `model`. If you omit `model`, results come back as raw JSON.
 ## Custom endpoints
 
 Anything outside plain CRUD is just a decorated method on the same class — exactly like on a
-client (see [Routing & Parameters](routing.md)):
+client (see [Routing](routing.md)):
 
 ```python
-from typing import List
+from asas import AsasResource, get
 
-class Users(AsasResource):
+class Role(BaseModel):
+    name: str
+
+class Users(AsasResource[User]):
     path = "/users"
-    model = User
 
-    @get("/users/{id}/roles", response_model=List[Role])
-    def roles(self, roles: List[Role], id: int) -> List[Role]:
-        return roles
+    @get("/users/{id}/roles")
+    def roles(self, id: int) -> list[Role]: ...
 
-client.users.roles(id=1)     # GET /users/1/roles
+client.users.roles(1)        # GET /users/1/roles
 ```
 
 ## Lazy iteration over every record
@@ -97,6 +122,12 @@ for user in client.users.iterate(active=True):
     ...
 ```
 
+Iteration stops when the paginator finds no next page. It also stops when a page **after the
+first** answers `404`, which is how DRF and similar APIs reply to a page past the end. That
+`404` ends iteration quietly: nothing is raised and `on_error` hooks are not called. A `404` on
+the first page still raises [`NotFoundError`](errors.md), and any other non-2xx status on any
+page raises as usual.
+
 ## Pagination styles
 
 Set a `paginator` on the resource to match how your API paginates. The default is
@@ -107,9 +138,8 @@ page-number pagination; all strategies share the same lazy loop.
     ```python
     from asas import PageNumberPaginator
 
-    class Users(AsasResource):
+    class Users(AsasResource[User]):
         path = "/users"
-        model = User
         paginator = PageNumberPaginator(page_param="page", size_param="per_page",
                                         page_size=100)
     # GET /users?page=1&per_page=100, then page=2, … until a short page.
@@ -120,9 +150,8 @@ page-number pagination; all strategies share the same lazy loop.
     ```python
     from asas import OffsetPaginator
 
-    class Users(AsasResource):
+    class Users(AsasResource[User]):
         path = "/users"
-        model = User
         paginator = OffsetPaginator(offset_param="offset", limit_param="limit", limit=100)
     # GET /users?offset=0&limit=100, then offset=100, … until a short page.
     ```
@@ -132,9 +161,8 @@ page-number pagination; all strategies share the same lazy loop.
     ```python
     from asas import CursorPaginator
 
-    class Users(AsasResource):
+    class Users(AsasResource[User]):
         path = "/users"
-        model = User
         paginator = CursorPaginator(cursor_param="cursor", next_key="meta.next_cursor")
     # Reads the next cursor from the response body (dotted paths allowed) and
     # sends it back as ?cursor=…; stops when it is absent.
@@ -145,9 +173,8 @@ page-number pagination; all strategies share the same lazy loop.
     ```python
     from asas import LinkHeaderPaginator
 
-    class Users(AsasResource):
+    class Users(AsasResource[User]):
         path = "/users"
-        model = User
         paginator = LinkHeaderPaginator()
     # Follows the RFC 5988  Link: <…>; rel="next"  header until there is none.
     ```
@@ -187,23 +214,21 @@ class HeaderCountPaginator(Paginator):
 
 ## Async resources
 
-`AsasAsyncResource` mirrors the sync resource for `AsasAsyncClient`. CRUD methods are
+`AsasAsyncResource[User]` mirrors the sync resource for `AsasAsyncClient`. CRUD methods are
 awaitable and iteration uses `async for`:
 
 ```python
 from asas import AsasAsyncClient, AsasAsyncResource
 
-class Users(AsasAsyncResource):
+class Users(AsasAsyncResource[User]):
     path = "/users"
-    model = User
 
 class MyClient(AsasAsyncClient):
     users = Users()
 
 async def main():
-    client = MyClient(base_url="https://api.example.com")
-    user = await client.users.get(1)
-    async for user in client.users:      # lazy, page by page
-        print(user.name)
-    await client.engine.aclose()
+    async with MyClient(base_url="https://api.example.com") as client:
+        user = await client.users.get(1)
+        async for user in client.users:      # lazy, page by page
+            print(user.name)
 ```

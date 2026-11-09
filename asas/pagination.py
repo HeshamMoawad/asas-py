@@ -69,7 +69,6 @@ class Paginator:
         self, response: Response, previous: PageRequest
     ) -> Optional[PageRequest]:
         """Return the next page request, or ``None`` when iteration is done."""
-        raise NotImplementedError
 
 
 class PageNumberPaginator(Paginator):

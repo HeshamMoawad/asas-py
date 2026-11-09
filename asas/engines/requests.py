@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from asas.core.models import Request, Response
+from asas.errors import TransportError
 
 
 class RequestsSyncEngine:
@@ -32,9 +33,12 @@ class RequestsSyncEngine:
 
     def send(self, request: Request) -> Response:
         kwargs = _prepare_requests_kwargs(request)
-        response = self.session.request(
-            method=request.method, url=request.url, **kwargs
-        )
+        try:
+            response = self.session.request(
+                method=request.method, url=request.url, **kwargs
+            )
+        except requests.RequestException as exc:
+            raise TransportError(str(exc), request) from exc
         return _from_requests_response(response)
 
     def close(self) -> None:
@@ -48,6 +52,7 @@ def _prepare_requests_kwargs(request: Request) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {
         "params": request.params,
         "headers": request.headers,
+        "cookies": request.cookies,
         "timeout": request.timeout,
     }
 
@@ -55,9 +60,9 @@ def _prepare_requests_kwargs(request: Request) -> Dict[str, Any]:
     if payload:
         if payload.json is not None:
             kwargs["json"] = payload.json
-        elif payload.data is not None:
+        if payload.data is not None:
             kwargs["data"] = payload.data
-        elif payload.files is not None:
+        if payload.files is not None:
             kwargs["files"] = payload.files
 
     return kwargs

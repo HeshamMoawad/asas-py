@@ -2,6 +2,8 @@ site_name: Asas-py Documentation
 repo_url: https://github.com/HeshamMoawad/asas-py
 repo_name: HeshamMoawad/asas-py
 site_url: https://heshammoawad.github.io/asas-py/
+exclude_docs: |
+  superpowers/
 plugins:
   - search
   - i18n:
@@ -18,13 +20,17 @@ nav:
   - Home: index.md
   - User Guide:
       - Clients: clients.md
-      - Routing & Parameters: routing.md
+      - Routing: routing.md
+      - Parameters: parameters.md
       - Request Bodies & Responses: request-response.md
+      - Errors: errors.md
+      - Hooks: hooks.md
       - Resources & Pagination: resources.md
       - Authentication: authentication.md
   - Reference:
       - Engines & Transports: engines.md
       - Core Models: models.md
+      - Migration to 0.2: migration-0.2.md
 
 theme:
   name: material

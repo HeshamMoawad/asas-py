@@ -16,8 +16,8 @@ from asas import (
 
 class AuthClient(AsasClient):
     @get("/protected")
-    def get_protected(self, response: Response) -> Response:
-        return response
+    def get_protected(self) -> Response:
+        ...
 
 
 def test_no_auth_adds_nothing() -> None:

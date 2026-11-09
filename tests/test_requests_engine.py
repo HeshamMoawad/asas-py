@@ -8,6 +8,7 @@ import requests
 from asas import AsasAsyncClient, Response, get
 from asas.core.models import Payload, Request
 from asas.engines.requests import RequestsSyncEngine
+from asas.errors import TransportError
 
 
 def _fake_requests_response(
@@ -130,8 +131,8 @@ def test_requests_engine_is_sync_only() -> None:
 async def test_async_client_with_requests_engine_raises_sync_only_error() -> None:
     class AsyncRequestsClient(AsasAsyncClient):
         @get("/protected")
-        async def get_protected(self, response: Response) -> Response:
-            return response
+        async def get_protected(self) -> Response:
+            ...
 
     client = AsyncRequestsClient(
         base_url="https://api.example.com",
@@ -140,3 +141,58 @@ async def test_async_client_with_requests_engine_raises_sync_only_error() -> Non
 
     with pytest.raises(TypeError, match="RequestsSyncEngine"):
         await client.get_protected()
+
+
+def test_requests_engine_sends_cookies_and_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: Dict[str, Any] = {}
+
+    def _fake(self: Any, method: Any, url: Any, **kwargs: Any) -> requests.Response:
+        captured.update(kwargs)
+        return _fake_requests_response(200)
+
+    monkeypatch.setattr(requests.Session, "request", _fake)
+    RequestsSyncEngine().send(
+        Request("GET", "https://api.example.com/x", cookies={"sid": "abc"}, timeout=3)
+    )
+    assert captured["cookies"] == {"sid": "abc"}
+    assert captured["timeout"] == 3
+
+
+def test_requests_engine_sends_list_json_and_form_with_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[Dict[str, Any]] = []
+
+    def _fake(self: Any, method: Any, url: Any, **kwargs: Any) -> requests.Response:
+        calls.append(kwargs)
+        return _fake_requests_response(200)
+
+    monkeypatch.setattr(requests.Session, "request", _fake)
+    engine = RequestsSyncEngine()
+    url = "https://api.example.com/x"
+    engine.send(Request("POST", url, payload=Payload(json=[{"a": 1}])))
+    engine.send(
+        Request(
+            "POST",
+            url,
+            payload=Payload(data={"note": "hi"}, files={"f": ("a.txt", b"x")}),
+        )
+    )
+    assert calls[0]["json"] == [{"a": 1}]
+    assert calls[1]["data"] == {"note": "hi"}
+    assert calls[1]["files"] == {"f": ("a.txt", b"x")}
+
+
+def test_requests_engine_transport_error_is_wrapped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fake(self: Any, method: Any, url: Any, **kwargs: Any) -> requests.Response:
+        raise requests.ConnectionError("boom")
+
+    monkeypatch.setattr(requests.Session, "request", _fake)
+    with pytest.raises(TransportError) as exc:
+        RequestsSyncEngine().send(Request("GET", "https://api.example.com/x"))
+    assert exc.value.request.url == "https://api.example.com/x"
+    assert isinstance(exc.value.__cause__, requests.ConnectionError)

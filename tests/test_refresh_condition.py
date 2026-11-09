@@ -21,8 +21,8 @@ BASE = "https://api.example.com"
 
 class Client(AsasClient):
     @get("/protected")
-    def call(self, response: Response) -> Response:
-        return response
+    def call(self) -> Response:
+        ...
 
 
 def _client(**auth_kwargs: Any) -> Client:

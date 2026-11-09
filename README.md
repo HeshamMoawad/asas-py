@@ -27,8 +27,12 @@ URLs, and manual JSON wrangling. Asas flips that: **your client class *is* your 
 declared once and typed end-to-end.
 
 - Write your whole API client as a class with decorators — no boilerplate to maintain.
-- One signature drives **path segments, query params, and JSON bodies** automatically.
-- **Pydantic in, validated Pydantic out.** No hand-rolling `json.loads` + dict lookups.
+- One signature drives **path segments, query params, headers, cookies, forms, files and JSON
+  bodies** — inferred, or explicit with `Annotated` markers.
+- **Pydantic in, validated Pydantic out.** The return annotation is the response model, so
+  `client.get_user(1)` is typed as `User` for mypy and your IDE.
+- **Typed errors and hooks**: non-2xx responses raise `NotFoundError`, `RateLimitError`, …
+  and every request can be observed through hooks.
 - Ready for real APIs: auth, automatic token refresh (even on custom conditions), and
   resource CRUD with paging that needs no page-loop code.
 
@@ -39,7 +43,7 @@ pip install asas-py             # + Pydantic + httpx (the default engine)
 pip install "asas-py[requests]" # + the optional sync-only requests engine
 ```
 
-Python 3.9+ (see [Documentation](https://heshammoawad.github.io/asas-py/) for the Arabic guide).
+Python 3.10+ (see [Documentation](https://heshammoawad.github.io/asas-py/) for the Arabic guide).
 
 ## Quick start
 
@@ -58,20 +62,19 @@ class Todo(BaseModel):
 
 
 class TodoClient(AsasClient):
-    @get("/todos/{id}", response_model=Todo)
-    def get_todo(self, todo: Todo, id: int) -> Todo:
-        return todo
+    @get("/todos/{id}")
+    def get_todo(self, id: int) -> Todo: ...
 
 
-client = TodoClient(base_url="https://dummyjson.com")
-task = client.get_todo(id=1)
-print(task.todo)
+with TodoClient(base_url="https://dummyjson.com") as client:
+    task = client.get_todo(1)       # typed: Todo
+    print(task.todo)
 ```
 
-`id` is a path placeholder, `Todo` validates the JSON response, and `todo` is injected as the
-first argument after `self`. Want async? Use `@get` on an `async def` with
-`AsasAsyncClient` — the decorators are identical. This snippet runs as-is against
-[dummyjson.com](https://dummyjson.com) (a free public REST API).
+`id` is a path placeholder and the return annotation `Todo` validates the JSON response. The
+method body is never executed, so it is just `...`. Want async? Use
+`async def` with `AsasAsyncClient` — the decorators are identical. This snippet runs as-is
+against [dummyjson.com](https://dummyjson.com) (a free public REST API).
 
 ### Try it live
 
@@ -94,13 +97,15 @@ class ProductPage(BaseModel):
 
 
 class StoreClient(AsasClient):
-    @get("/products", response_model=ProductPage)
-    def products(self, page: ProductPage) -> List[Product]:
-        return page.products
+    @get("/products")
+    def products(self) -> ProductPage: ...
+
+    def product_list(self) -> List[Product]:
+        return self.products().products
 
 
 client = StoreClient(base_url="https://dummyjson.com")
-first = client.products()
+first = client.product_list()
 print(f"{len(first)} products, first: {first[0].title} (${first[0].price})")
 ```
 
@@ -117,9 +122,8 @@ class User(BaseModel):
     name: str
 
 
-class Users(AsasResource):
+class Users(AsasResource[User]):
     path = "/users"
-    model = User
     paginator = OffsetPaginator(limit=100, items_key="users")
 
 
@@ -131,13 +135,46 @@ client = Client(base_url="https://api.example.com")
 for user in client.users:          # pages fetched on demand, loop ends itself
     print(user.name)
 
-single = client.users.get(42)      # generated CRUD, too
+single = client.users.get(42)      # generated CRUD, too: typed as User
+```
+
+### Parameters, errors and hooks
+
+```python
+from typing import Annotated
+
+from pydantic import BaseModel
+
+from asas import AsasClient, Header, Hooks, NotFoundError, Query, get
+
+
+class User(BaseModel):
+    id: int
+    name: str
+
+
+class Users(AsasClient):
+    @get("/users/{id}")
+    def get_user(
+        self,
+        id: int,
+        expand: Annotated[str | None, Query(alias="x-expand")] = None,
+        trace: Annotated[str | None, Header("X-Trace")] = None,
+    ) -> User: ...
+
+
+hooks = Hooks(on_response=[lambda req, res: print(req.method, req.url, res.status_code)])
+with Users(base_url="https://api.example.com", hooks=hooks) as client:
+    try:
+        user = client.get_user(1, trace="abc")
+    except NotFoundError:
+        user = None
 ```
 
 ### Authentication & automatic refresh
 
 ```python
-from asas import AsasClient, RefreshingBearerAuth, Response, get, refresh_on_keyword
+from asas import AsasClient, RefreshingBearerAuth, get, refresh_on_keyword
 
 auth = RefreshingBearerAuth(
     "expired-token",
@@ -148,8 +185,7 @@ auth = RefreshingBearerAuth(
 
 class MyClient(AsasClient):
     @get("/me")
-    def me(self, response: Response) -> dict:
-        return response.json()
+    def me(self) -> dict: ...
 
 
 client = MyClient(base_url="https://api.example.com", auth=auth)
@@ -159,10 +195,15 @@ client = MyClient(base_url="https://api.example.com", auth=auth)
 
 - **Sync & async clients** that share the same `@get`/`@post`/`@put`/`@delete`/`@patch`
   decorators — Asas auto-detects `async def`.
-- **Automatic parameter routing** — path placeholders, Pydantic-model bodies, and query params
-  from a single method signature.
-- **Pydantic responses** via `response_model`: validated, typed results with zero manual parsing.
-- **Resources + lazy pagination** — `AsasResource` gives `list`/`get`/`create`/`update`/
+- **Typed endpoints** — the return annotation drives parsing, so callers see the exact
+  signature you declared (`assert_type(client.get_user(1), User)` passes under `mypy --strict`).
+- **Parameter routing** — path placeholders, Pydantic-model bodies, and query params inferred
+  from a single method signature, or explicit with `Path` / `Query` / `Header` / `Cookie` /
+  `Body` / `Form` / `File` markers and aliases.
+- **Typed errors** — non-2xx responses raise `NotFoundError`, `RateLimitError`, … (all
+  `AsasError`s), plus `ResponseValidationError` and `TransportError`.
+- **Hooks** — `on_request` / `on_response` / `on_error` on the client or an endpoint.
+- **Resources + lazy pagination** — the generic `AsasResource[User]` gives `list`/`get`/`create`/`update`/
   `delete` and iterator-style paging (page-number, offset, cursor, and Link-header strategies).
 - **Authentication out of the box** — `NoAuth`, `BasicAuth`, `BearerAuth`, `APIKeyAuth`
   (header/query/cookie), `RefreshingBearerAuth`, and `CompositeAuth`, with swappable runtime
@@ -179,8 +220,8 @@ Planned and share-worthy next features:
 - [ ] **GraphQL support** — query / mutation / subscription decorators with typed responses.
 - [ ] **Testing module** — fixtures and helpers to make writing client tests trivial (respx
       mocks, base harnesses, captured requests).
-- [ ] **Plugin / hook system** — request/response lifecycle hooks, middleware, and event
-      listeners.
+- [ ] **Middleware & retries** — retry/backoff and async hooks (synchronous lifecycle hooks
+      shipped in 0.2).
 - [ ] **Cookie & session helpers** — first-class session management, cookie jars, and CSRF
       handling.
 
@@ -204,12 +245,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and coding standard
 Full docs (English + العربية): [heshammoawad.github.io/asas-py](https://heshammoawad.github.io/asas-py/)
 
 - [Clients](docs/clients.md)
-- [Routing & Parameters](docs/routing.md)
+- [Routing](docs/routing.md)
+- [Parameters](docs/parameters.md)
 - [Request Bodies & Responses](docs/request-response.md)
+- [Errors](docs/errors.md)
+- [Hooks](docs/hooks.md)
 - [Resources & Pagination](docs/resources.md)
 - [Authentication](docs/authentication.md)
 - [Engines & Transports](docs/engines.md)
 - [Core Models](docs/models.md)
+- [Migrating to 0.2](docs/migration-0.2.md)
 
 ## License
 

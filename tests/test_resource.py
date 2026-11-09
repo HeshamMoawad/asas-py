@@ -1,3 +1,7 @@
+import json
+from datetime import datetime
+from typing import Any
+
 import pytest
 import respx
 from httpx import Response as HttpxResponse
@@ -10,10 +14,13 @@ from asas import (
     AsasResource,
     BearerAuth,
     CursorPaginator,
+    Hooks,
+    InternalServerError,
     LinkHeaderPaginator,
+    NotFoundError,
     OffsetPaginator,
     PageNumberPaginator,
-    Response,
+    ResponseValidationError,
     get,
 )
 
@@ -32,13 +39,12 @@ class Role(BaseModel):
 # --- Resource definitions -------------------------------------------------
 
 
-class Users(AsasResource):
+class Users(AsasResource[User]):
     path = "/users"
-    model = User
 
-    @get("/users/{id}/roles", response_model=list[Role])
-    def roles(self, roles: list, id: int) -> list:
-        return roles
+    @get("/users/{id}/roles")
+    def roles(self, id: int) -> list[Role]:
+        ...
 
 
 class StoreClient(AsasClient):
@@ -94,8 +100,6 @@ def test_crud_operations() -> None:
 
         created = client.users.create(User(id=2, name="Bob"))
         assert created == User(id=2, name="Bob")
-        import json
-
         assert json.loads(create_route.calls.last.request.content) == {
             "id": 2,
             "name": "Bob",
@@ -105,9 +109,7 @@ def test_crud_operations() -> None:
         assert updated == User(id=2, name="Bobby")
         assert update_route.called
 
-        deleted = client.users.delete(2)
-        assert isinstance(deleted, Response)
-        assert deleted.status_code == 204
+        assert client.users.delete(2) is None  # type: ignore[func-returns-value]
         assert delete_route.called
 
 
@@ -152,7 +154,7 @@ def test_page_number_pagination_default() -> None:
     class C(AsasClient):
         users = PagedUsers()
 
-    client = C(base_url=BASE)
+    client = C(base_url=BASE, auth=BearerAuth("tok"))
     with respx.mock(base_url=BASE) as mock:
         route = mock.get("/users").mock(
             side_effect=_pages(
@@ -168,6 +170,9 @@ def test_page_number_pagination_default() -> None:
         # Page numbers advance.
         assert route.calls[0].request.url.params["page"] == "1"
         assert route.calls[1].request.url.params["page"] == "2"
+        # Auth is applied on every page, not just the first.
+        for call in route.calls:
+            assert call.request.headers["Authorization"] == "Bearer tok"
 
 
 def test_iteration_is_lazy() -> None:
@@ -293,9 +298,8 @@ def test_iteration_without_model_yields_raw_dicts() -> None:
 # --- Async ----------------------------------------------------------------
 
 
-class AsyncUsers(AsasAsyncResource):
+class AsyncUsers(AsasAsyncResource[User]):
     path = "/users"
-    model = User
     paginator = PageNumberPaginator(page_size=2)
 
 
@@ -324,4 +328,291 @@ async def test_async_resource_get_and_iterate() -> None:
         collected = [user async for user in client.users]
         assert [u.id for u in collected] == [1, 2, 3]
 
+    await client.engine.aclose()
+
+
+# --- Generics, errors, hooks (v0.2) -----------------------------------------
+
+
+class Admin(BaseModel):
+    id: int
+    level: int
+
+
+def test_model_inferred_from_generic() -> None:
+    assert Users.model is User
+
+
+def test_explicit_model_overrides_generic() -> None:
+    class X(AsasResource[User]):
+        path = "/x"
+        model = Admin
+
+    assert X.model is Admin
+
+
+def test_constructor_model_overrides_generic() -> None:
+    assert AsasResource[User](path="/x", model=Admin).model is Admin
+
+
+def test_bare_resource_returns_raw_json() -> None:
+    class Raw(AsasResource):
+        path = "/raw"
+
+    class C(AsasClient):
+        raw = Raw()
+
+    assert Raw.model is None
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/raw/1").mock(return_value=HttpxResponse(200, json={"a": 1}))
+        assert C(base_url=BASE).raw.get(1) == {"a": 1}
+
+
+def test_delete_returns_none() -> None:
+    client = StoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.delete("/users/1").mock(return_value=HttpxResponse(204))
+        assert client.users.delete(1) is None  # type: ignore[func-returns-value]
+
+
+def test_delete_raises_on_error() -> None:
+    client = StoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.delete("/users/1").mock(return_value=HttpxResponse(404))
+        with pytest.raises(NotFoundError):
+            client.users.delete(1)
+
+
+def test_crud_raises_typed_errors() -> None:
+    client = StoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/users/99").mock(return_value=HttpxResponse(404))
+        with pytest.raises(NotFoundError):
+            client.users.get(99)
+
+
+def test_crud_fires_client_hooks() -> None:
+    seen: list = []
+    hooks = Hooks(on_request=[lambda req: seen.append(req.url)])
+    client = StoreClient(base_url=BASE, hooks=hooks)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/users").mock(return_value=HttpxResponse(200, json=[]))
+        client.users.list()
+    assert seen == [f"{BASE}/users"]
+
+
+def test_invalid_record_raises_response_validation_error_and_fires_on_error() -> None:
+    errors: list = []
+    client = StoreClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/users/1").mock(return_value=HttpxResponse(200, json={"id": "x"}))
+        with pytest.raises(ResponseValidationError):
+            client.users.get(1)
+    assert len(errors) == 1
+    assert isinstance(errors[0], ResponseValidationError)
+
+
+def test_invalid_json_raises_response_validation_error() -> None:
+    client = StoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/users/1").mock(return_value=HttpxResponse(200, content=b"nope"))
+        with pytest.raises(ResponseValidationError):
+            client.users.get(1)
+
+
+def test_invalid_page_item_during_iteration_raises_and_fires_on_error() -> None:
+    errors: list = []
+    client = StoreClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/users").mock(
+            return_value=HttpxResponse(200, json=[{"id": 1, "name": "a"}, {"id": 2}])
+        )
+        with pytest.raises(ResponseValidationError):
+            list(client.users)
+    assert len(errors) == 1
+
+
+class Event(BaseModel):
+    at: datetime
+
+
+def test_create_body_is_json_safe() -> None:
+    class Events(AsasResource[Event]):
+        path = "/events"
+
+    class C(AsasClient):
+        events = Events()
+
+    client = C(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.post("/events").mock(
+            return_value=HttpxResponse(201, json={"at": "2024-01-02T03:04:05"})
+        )
+        client.events.create(Event(at=datetime(2024, 1, 2, 3, 4, 5)))
+        sent: Any = json.loads(route.calls.last.request.content)
+    assert sent == {"at": "2024-01-02T03:04:05"}
+
+
+@pytest.mark.asyncio
+async def test_async_resource_generic_and_errors() -> None:
+    assert AsyncUsers.model is User
+    client = AsyncStoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/users/99").mock(return_value=HttpxResponse(404))
+        mock.get("/users/1").mock(return_value=HttpxResponse(200, json={"id": "x"}))
+        mock.delete("/users/2").mock(return_value=HttpxResponse(204))
+        with pytest.raises(NotFoundError):
+            await client.users.get(99)
+        with pytest.raises(ResponseValidationError):
+            await client.users.get(1)
+        assert await client.users.delete(2) is None  # type: ignore[func-returns-value]
+    await client.engine.aclose()
+
+
+def test_inherited_explicit_model_not_overridden_by_parent_generic() -> None:
+    class X(AsasResource[User]):
+        path = "/x"
+        model = Admin
+
+    class Y(X):
+        pass
+
+    assert Y.model is Admin
+
+
+def test_plain_subclass_inherits_generic_model() -> None:
+    class Admins(Users):
+        pass
+
+    assert Admins.model is User
+
+
+# --- Id encoding --------------------------------------------------------------
+
+HOSTILE_ID = "a/../../admin?x=1"
+ENCODED_URL = f"{BASE}/users/a%2F..%2F..%2Fadmin%3Fx%3D1"
+
+
+def _crud_calls(users: Any) -> list:
+    return [
+        lambda: users.get(HOSTILE_ID),
+        lambda: users.update(HOSTILE_ID, {"id": 1, "name": "a"}),
+        lambda: users.delete(HOSTILE_ID),
+    ]
+
+
+def test_crud_id_is_percent_encoded() -> None:
+    client = StoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE, assert_all_called=False) as mock:
+        route = mock.route().mock(
+            return_value=HttpxResponse(200, json={"id": 1, "name": "a"})
+        )
+        for call in _crud_calls(client.users):
+            call()
+        assert [str(c.request.url) for c in route.calls] == [ENCODED_URL] * 3
+
+
+@pytest.mark.asyncio
+async def test_crud_id_is_percent_encoded_async() -> None:
+    client = AsyncStoreClient(base_url=BASE)
+    with respx.mock(base_url=BASE, assert_all_called=False) as mock:
+        route = mock.route().mock(
+            return_value=HttpxResponse(200, json={"id": 1, "name": "a"})
+        )
+        for call in _crud_calls(client.users):
+            await call()
+        assert [str(c.request.url) for c in route.calls] == [ENCODED_URL] * 3
+    await client.engine.aclose()
+
+
+# --- Pagination end on 404 ----------------------------------------------------
+
+
+class DrfUsers(AsasResource[User]):
+    path = "/users"
+    paginator = PageNumberPaginator(size_param="page_size", page_size=2)
+
+
+class AsyncDrfUsers(AsasAsyncResource[User]):
+    path = "/users"
+    paginator = PageNumberPaginator(size_param="page_size", page_size=2)
+
+
+class DrfClient(AsasClient):
+    users = DrfUsers()
+
+
+class AsyncDrfClient(AsasAsyncClient):
+    users = AsyncDrfUsers()
+
+
+FULL_PAGE = {"results": [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}]}
+
+
+def _invalid_page() -> HttpxResponse:
+    return HttpxResponse(404, json={"detail": "Invalid page."})
+
+
+def _drf_route(mock: Any, *responses: HttpxResponse) -> Any:
+    return mock.get("/users").mock(side_effect=list(responses))
+
+
+def test_404_past_last_page_ends_iteration() -> None:
+    errors: list = []
+    client = DrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        route = _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), _invalid_page())
+        assert [u.id for u in client.users] == [1, 2]
+        assert route.call_count == 2
+    assert errors == []
+
+
+@pytest.mark.asyncio
+async def test_404_past_last_page_ends_iteration_async() -> None:
+    errors: list = []
+    client = AsyncDrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        route = _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), _invalid_page())
+        assert [u.id async for u in client.users] == [1, 2]
+        assert route.call_count == 2
+    assert errors == []
+    await client.engine.aclose()
+
+
+def test_404_on_first_page_raises() -> None:
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, _invalid_page())
+        with pytest.raises(NotFoundError):
+            list(DrfClient(base_url=BASE).users)
+
+
+@pytest.mark.asyncio
+async def test_404_on_first_page_raises_async() -> None:
+    client = AsyncDrfClient(base_url=BASE)
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, _invalid_page())
+        with pytest.raises(NotFoundError):
+            [u async for u in client.users]
+    await client.engine.aclose()
+
+
+def test_server_error_on_later_page_raises() -> None:
+    errors: list = []
+    client = DrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), HttpxResponse(500))
+        with pytest.raises(InternalServerError):
+            list(client.users)
+    assert len(errors) == 1
+
+
+@pytest.mark.asyncio
+async def test_server_error_on_later_page_raises_async() -> None:
+    errors: list = []
+    client = AsyncDrfClient(base_url=BASE, hooks=Hooks(on_error=[errors.append]))
+    with respx.mock(base_url=BASE) as mock:
+        _drf_route(mock, HttpxResponse(200, json=FULL_PAGE), HttpxResponse(500))
+        with pytest.raises(InternalServerError):
+            [u async for u in client.users]
+    assert len(errors) == 1
     await client.engine.aclose()

@@ -1,4 +1,4 @@
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 import pytest
 import respx
@@ -10,7 +10,6 @@ from asas import (
     HTTPXAsyncEngine,
     HTTPXSyncEngine,
     Payload,
-    Response,
     delete,
     get,
     patch,
@@ -21,30 +20,30 @@ from asas import (
 
 class MockSyncClient(AsasClient):
     @get("/test")
-    def get_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def get_test(self) -> Dict[str, Any]:
+        ...
 
     @post("/test-post")
-    def post_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def post_test(self) -> Dict[str, Any]:
+        ...
 
     @put("/test-put")
-    def put_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def put_test(self) -> Dict[str, Any]:
+        ...
 
     @delete("/test-delete")
-    def delete_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def delete_test(self) -> Dict[str, Any]:
+        ...
 
     @patch("/test-patch")
-    def patch_test(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    def patch_test(self) -> Dict[str, Any]:
+        ...
 
 
 class MockAsyncClient(AsasAsyncClient):
     @get("/test-async")
-    async def get_test_async(self, response: Response) -> Dict[str, Any]:
-        return cast(Dict[str, Any], response.json())
+    async def get_test_async(self) -> Dict[str, Any]:
+        ...
 
 
 @pytest.mark.asyncio
@@ -82,19 +81,21 @@ async def test_client_all_decorators() -> None:
 
 
 def test_httpx_engine_payload_types() -> None:
+    import httpx
+
     from asas.core.models import Request
     from asas.engines.httpx import _prepare_httpx_request
 
     # Test with raw data
     req_data = Request(method="POST", url="http://h", payload=Payload(data=b"raw"))
-    httpx_req = _prepare_httpx_request(req_data)
+    httpx_req = _prepare_httpx_request(httpx.Client(), req_data)
     assert httpx_req.content == b"raw"
 
     # Test with files
     req_files = Request(
         method="POST", url="http://h", payload=Payload(files={"f": b"c"})
     )
-    httpx_req = _prepare_httpx_request(req_files)
+    httpx_req = _prepare_httpx_request(httpx.Client(), req_files)
     assert "multipart/form-data" in httpx_req.headers["content-type"]
 
 

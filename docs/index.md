@@ -37,51 +37,71 @@ on both — Asas auto-detects `async def` methods.
 === "Synchronous"
 
     ```python
-    from asas import AsasClient, get, Response
+    from pydantic import BaseModel
+
+    from asas import AsasClient, get
+
+    class User(BaseModel):
+        id: int
+        name: str
 
     class MyClient(AsasClient):
         @get("/users/{id}")
-        def get_user(self, response: Response, id: int):
-            return response.json()
+        def get_user(self, id: int) -> User: ...
 
-    client = MyClient(base_url="https://api.example.com")
-    user = client.get_user(id=1)
+    with MyClient(base_url="https://api.example.com") as client:
+        user = client.get_user(1)   # typed: User
     ```
 
 === "Asynchronous"
 
     ```python
-    from asas import AsasAsyncClient, get, Response
+    from pydantic import BaseModel
+
+    from asas import AsasAsyncClient, get
+
+    class User(BaseModel):
+        id: int
+        name: str
 
     class MyAsyncClient(AsasAsyncClient):
         @get("/users/{id}")
-        async def get_user(self, response: Response, id: int):
-            return response.json()
+        async def get_user(self, id: int) -> User: ...
 
-    async def main():
-        client = MyAsyncClient(base_url="https://api.example.com")
-        user = await client.get_user(id=1)
-        await client.engine.aclose()
+    async def main() -> None:
+        async with MyAsyncClient(base_url="https://api.example.com") as client:
+            user = await client.get_user(1)   # typed: User
     ```
 
-!!! tip "The injected first argument"
-    The decorated method receives the parsed result as its **first argument after `self`**
-    (`response` above). Any remaining parameters — like `id` — are supplied by the caller
-    and routed into the request. See [Routing & Parameters](routing.md).
+!!! tip "The return annotation drives everything"
+    The method body is **never executed** — write `...`. Asas reads the
+    **return annotation** (`-> User`) to parse and validate the response, and the **parameters**
+    to build the request. Callers see exactly the signature you declared, so type checkers and
+    IDEs understand `client.get_user(1)`. See [Routing](routing.md) and
+    [Parameters](parameters.md).
+
+!!! info "Upgrading from 0.1?"
+    Version 0.2 is a breaking release. See the [migration guide](migration-0.2.md).
 
 ## Feature highlights
 
 - **[Clients](clients.md)** — sync and async clients with a swappable transport and
   runtime-settable auth.
-- **[Routing & Parameters](routing.md)** — `@get`/`@post`/`@put`/`@delete`/`@patch` with
-  automatic path, query, and body routing.
+- **[Routing](routing.md)** — `@get`/`@post`/`@put`/`@delete`/`@patch`, with the return
+  annotation driving response parsing.
+- **[Parameters](parameters.md)** — `Path`, `Query`, `Header`, `Cookie`, `Body`, `Form` and
+  `File` markers, with aliases and inference when you omit them.
 - **[Request bodies & responses](request-response.md)** — Pydantic models in, validated
-  models out via `response_model`.
+  models out, typed from the return annotation.
+- **[Errors](errors.md)** — non-2xx responses raise typed exceptions such as `NotFoundError`
+  and `RateLimitError`.
+- **[Hooks](hooks.md)** — observe or modify every request, response and error.
 - **[Resources & pagination](resources.md)** — convention-driven CRUD and lazy iteration
   over every record, with no page-loop code.
 - **[Authentication](authentication.md)** — Basic, Bearer, API key, automatic refresh, and
   composite strategies.
 - **[Engines & transports](engines.md)** — a transport-agnostic core; `httpx` is the
   bundled reference engine, with an optional `requests` engine extra.
+- **[Migration to 0.2](migration-0.2.md)** — before/after for every breaking change.
 - **[Core models](models.md)** — plain `Request` / `Response` / `Payload` dataclasses that
   every layer speaks.
